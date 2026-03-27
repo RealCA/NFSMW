@@ -4,18 +4,14 @@ Matching decompilation of Need for Speed Most Wanted 2005 (GameCube) targeting t
 The goal is to produce C++ source that compiles to byte-identical and dwarf-identical object code against the
 original retail binary using the ProDG GC 3.9.3 compiler.
 
-You should heavily rely on your skills. An AI agent recently decompiled the translation unit zAnim,
-but the result is not as clean as human written code. The dwarf in Symbols/Dwarf unfortunately also didn't
-contain the GameCube dwarf, so the agent had to rely on the PS2 ones.
-
-DON'T remove any TODO comments.
+You should heavily rely on your skills. An AI agent recently decompiled the translation unit zPhysics,
+but the result is not as clean as human written code. And there was a fatal error, the agent used the PS2
+structs, because the GameCube ones were missing.
 
 You should do the following tasks:
 
-1. Get rid of `using namespace` and qualify the full names instead.
-2. Compare the coding style of the functions in zAnim (AI written) with zAI (human written) and sum up a generic style guide that
-   tells later agents how to write code that conforms to the human style. It should be an .MD file in the root of the project.
-3. Apply these style guides to zAnim.
-4. Look at all the functions and struct/classes that were created in all the latest Copilot commits and make sure that the dwarf matches the original (dtk dump + lookup skill). If it looks like the struct is based on the PS2 version, then completely replace it with that from the dwarf (including offset comments), but keep the bodies of the inlines that you figured out and the virtual functions too.  
+1. Make sure the dol builds using `ninja`.
+2. Get rid of `using` directives and qualify the full names instead.
+3. Apply STYLE_GUIDE.md to zPhysics.
+4. Look at all the functions and struct/classes that were created in all the latest Copilot commits and make sure that the dwarf matches the original (dtk dump + lookup skill). Ignore the fact that some inlines are duplicated inside struct bodies in the original dwarf. Keep in mind that the dwarf only ever shows "struct", so don't change classes to structs according to that.
 5. Look at all the structs/classes that were created in all the latest Copilot commits and depending on the line info decide whether they are defined in the right place (lookup skill + line_lookup skill). Move them if they aren't.
-6. Make sure there were no regressions in the matching progress due to the cleanup.

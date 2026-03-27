@@ -9,8 +9,7 @@
 #include "Speed/Indep/Src/World/WCollisionTri.h"
 
 // total size: 0x3C
-class WWorldPos {
-  public:
+struct WWorldPos {
     void MakeFaceAtPoint(const UMath::Vector3 &inPoint);
     bool FindClosestFace(const WCollider *collider, const UMath::Vector3 &ptRaw, bool quitIfOnSameFace);
     bool FindClosestFace(const UMath::Vector3 &ptRaw, bool quitIfOnSameFace);
@@ -32,22 +31,26 @@ class WWorldPos {
         }
     }
 
-    WWorldPos(float yOffset)
-        : fFace(), //
-          fYOffset(yOffset), //
-          fSurface(nullptr) {
-        fFaceValid = 0;
-        fMissCount = 0;
-        fUsageCount = 0;
+    WWorldPos(float yOffset) {
+        fFace.fSurface.fSurface = 0;
+        fFace.fSurface.fFlags = 0;
+        this->fYOffset = yOffset;
+        this->fFaceValid = 0;
+        this->fMissCount = 0;
+        this->fUsageCount = 0;
+        fFace.fPt0 = UMath::Vector3::kZero;
+        fFace.fPt1 = UMath::Vector3::kZero;
+        fFace.fPt2 = UMath::Vector3::kZero;
+        this->fSurface = nullptr;
     }
 
     ~WWorldPos() {}
 
     // bool OffEdge() const {}
 
-    bool OnValidFace() const { return fFaceValid; }
+    bool OnValidFace() const { return fFaceValid != 0; }
 
-    void ForceFaceValidity() { fFaceValid = 1; }
+    void ForceFaceValidity() {}
 
     // const WSurface &Surface() const {}
 
@@ -55,32 +58,11 @@ class WWorldPos {
         fYOffset = liftAmount;
     }
 
-    void UNormal(UMath::Vector3 *norm) const {
-        if (fFaceValid) {
-            fFace.GetNormal(norm);
-            if (norm->y < 0.0f) {
-                norm->y = -norm->y;
-                norm->x = -norm->x;
-                norm->z = -norm->z;
-            }
-            if (0.9999f <= norm->y) {
-                norm->y = 0.9999f;
-            }
-        } else {
-            norm->z = 0.0f;
-            norm->x = 0.0f;
-            norm->y = 1.0f;
-        }
-    }
+    void UNormal(UMath::Vector3 *norm) const {}
 
-    void UNormal(UMath::Vector4 *norm) const {
-        UNormal(&UMath::Vector4To3(*norm));
-        norm->w = 0.0f;
-    }
+    void UNormal(UMath::Vector4 *norm) const {}
 
-    const UMath::Vector4 &FacePoint(int ptInd) const {
-        return reinterpret_cast<const UMath::Vector4 *>(&fFace)[ptInd];
-    }
+    // const UMath::Vector4 &FacePoint(int ptInd) const {}
 
     const Attrib::Collection *GetSurface() const {
         return fSurface;

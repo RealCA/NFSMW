@@ -13,6 +13,25 @@
 #include "Speed/Indep/Tools/AttribSys/Runtime/AttribSys.h"
 #include "Speed/Indep/Tools/AttribSys/Runtime/Common/AttribPrivate.h"
 
+enum eDRIVE_BY_TYPE {
+    DRIVE_BY_UNKNOWN = 0,
+    DRIVE_BY_TREE = 1,
+    DRIVE_BY_LAMPPOST = 2,
+    DRIVE_BY_SMOKABLE = 3,
+    DRIVE_BY_TUNNEL_IN = 4,
+    DRIVE_BY_TUNNEL_OUT = 5,
+    DRIVE_BY_OVERPASS_IN = 6,
+    DRIVE_BY_OVERPASS_OUT = 7,
+    DRIVE_BY_AI_CAR = 8,
+    DRIVE_BY_TRAFFIC = 9,
+    DRIVE_BY_BRIDGE = 10,
+    DRIVE_BY_PRE_COL = 11,
+    DRIVE_BY_CAMERA_BY = 12,
+    MAX_DRIVE_BY_TYPES = 13,
+};
+
+struct EffectLinkageRecord;
+
 namespace Attrib {
 namespace Gen {
 
@@ -47,6 +66,10 @@ struct smackable : Instance {
         SetDefaultLayout(sizeof(_LayoutStruct));
     }
 
+    smackable(const Instance &src) : Instance(src) {
+        SetDefaultLayout(sizeof(_LayoutStruct));
+    }
+
     smackable(const RefSpec &refspec, unsigned int msgPort, UTL::COM::IUnknown *owner) : Instance(refspec, msgPort, owner) {
         SetDefaultLayout(sizeof(_LayoutStruct));
     }
@@ -69,6 +92,14 @@ struct smackable : Instance {
         return 0xce70d7db;
     }
 
+    Instance &GetBase() {
+        return *this;
+    }
+
+    const Instance &GetBase() const {
+        return *this;
+    }
+
     const EffectLinkageRecord &OnHitObject(unsigned int index) const {
         const EffectLinkageRecord *resultptr = reinterpret_cast<const EffectLinkageRecord *>(GetAttributePointer(0x18915735, index));
         if (!resultptr) {
@@ -82,7 +113,8 @@ struct smackable : Instance {
     }
 
     const float &ExplosionEffect() const {
-        const float *resultptr = reinterpret_cast<const float *>(GetAttributePointer(0x360552da, 0));
+        const float *resultptr;
+        resultptr = reinterpret_cast<const float *>(GetAttributePointer(0x360552da, 0));
         if (!resultptr) {
             resultptr = reinterpret_cast<const float *>(DefaultDataArea(sizeof(float)));
         }
@@ -299,6 +331,16 @@ struct smackable : Instance {
             resultptr = reinterpret_cast<const UMath::Vector3 *>(DefaultDataArea(sizeof(UMath::Vector3)));
         }
         return *resultptr;
+    }
+
+    bool MOMENT(UMath::Vector3 &result) const {
+        const UMath::Vector3 *resultptr =
+            reinterpret_cast<const UMath::Vector3 *>(GetAttributePointer(0xfb19212f, 0));
+        if (resultptr) {
+            result = *resultptr;
+            return true;
+        }
+        return false;
     }
 
     const char *CollectionName() const {

@@ -703,6 +703,14 @@ class RefSpec {
     RefSpec &operator=(int rhs) { mClassKey = 0; mCollectionKey = 0; mCollectionPtr = nullptr; return *this; }
     void Clean() const;
 
+    bool operator==(const RefSpec &rhs) const {
+        return mClassKey == rhs.mClassKey && mCollectionKey == rhs.mCollectionKey;
+    }
+
+    bool operator!=(const RefSpec &rhs) const {
+        return !(*this == rhs);
+    }
+
     void operator delete(void *ptr, std::size_t bytes) {
         Free(ptr, bytes, "RefSpec");
     }
@@ -759,7 +767,24 @@ class Attribute {
     bool SetLength(unsigned int);
     void SendChangeMsg() const;
     // TODO
-    template <typename T> const T &Get(unsigned int index, T &result) const;
+    template <typename T> const T &Get(unsigned int index, T &result) const {
+        const T *resultptr = reinterpret_cast<const T *>(GetElementPointer(index));
+        if (resultptr) {
+            result = *resultptr;
+        }
+        return result;
+    }
+
+    template <typename T> const T &Get(unsigned int index) const;
+
+    template <typename T> bool Set(unsigned int index, const T &input) {
+        T *resultptr = reinterpret_cast<T *>(GetElementPointer(index));
+        if (resultptr) {
+            *resultptr = input;
+            return true;
+        }
+        return false;
+    }
 
     void operator delete(void *ptr, std::size_t bytes) {
         Free(ptr, bytes, "Attrib::Attribute");
@@ -777,7 +802,7 @@ class Attribute {
         return mInternal;
     }
 
-    bool Get(unsigned int index, RefSpec &result) {
+    bool Get(unsigned int index, RefSpec &result) const {
         const RefSpec *resultptr = reinterpret_cast<const RefSpec *>(GetElementPointer(index));
 
         if (resultptr) {
@@ -841,6 +866,17 @@ class Instance {
     unsigned int LocalAttribCount() const;
     bool Add(Key attributeKey, unsigned int count);
     bool Remove(Key attributeKey);
+
+    template <typename T> bool AddAndSet(Key attributeKey, const T *data, unsigned int count) {
+        if (Add(attributeKey, count) || Contains(attributeKey)) {
+            Attribute newattrib = Get(attributeKey);
+            for (unsigned int i = 0; i < count; i++) {
+                newattrib.Set(i, data[i]);
+            }
+            return true;
+        }
+        return false;
+    }
     bool Modify(Key dynamicCollectionKey, unsigned int spaceForAdditionalAttributes);
     bool ModifyInternal(Key classKey, Key dynamicCollectionKey, unsigned int reserve);
     void Unmodify();
@@ -866,9 +902,9 @@ class Instance {
         return mCollection;
     }
 
-    void SetDefaultLayout(unsigned int bytes) {
+    void SetDefaultLayout(unsigned int bytes) const {
         if (mLayoutPtr == nullptr) {
-            mLayoutPtr = const_cast<void *>(DefaultDataArea(bytes));
+            const_cast<Instance *>(this)->mLayoutPtr = const_cast<void *>(DefaultDataArea(bytes));
         }
     }
 
