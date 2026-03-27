@@ -50,6 +50,7 @@ class World {
 extern World *pCurrentWorld;
 
 extern int g_tweakIsDriftRace;
+extern int g_tweakIsBurnout;
 
 void ServiceSpaceNodes();
 void ResetWorldTime();

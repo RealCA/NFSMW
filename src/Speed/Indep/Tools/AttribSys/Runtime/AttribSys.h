@@ -349,10 +349,6 @@ class Array {
     // TODO is this really overriden?
     void operator delete(void *ptr) {}
 
-#ifdef _MSC_VER
-    void operator delete(void *mem, void *ptr) {}
-#endif
-
     ~Array() {
         if (IsReferences()) {
             ITypeHandler *typeHandler = GetTypeDesc().GetHandler();
@@ -367,11 +363,6 @@ class Array {
         return ptr;
     }
 
-#ifdef _MSC_VER
-    void operator delete(void *, void *) {}
-#endif
-
-  private:
     uint16_t mAlloc;
     uint16_t mCount;
     uint16_t mSize;
@@ -395,10 +386,6 @@ class Node {
     void *operator new(std::size_t, void *ptr) {
         return ptr;
     }
-
-#ifdef _MSC_VER
-    void operator delete(void *, void *) {}
-#endif
 
     Node() : mKey(0), mTypeIndex(0), mMax(0), mFlags(0), mPtr(this) {}
 
@@ -621,9 +608,6 @@ class RefSpec {
     const Collection *GetCollection() const;
     const Collection *GetCollectionWithDefault() const;
     RefSpec &operator=(const RefSpec &rhs);
-#ifdef _MSC_VER
-    RefSpec &operator=(int rhs) { mClassKey = 0; mCollectionKey = 0; mCollectionPtr = nullptr; return *this; }
-#endif
     void Clean() const;
 
     void operator delete(void *ptr, std::size_t bytes) {
@@ -682,7 +666,18 @@ class Attribute {
     bool SetLength(unsigned int);
     void SendChangeMsg() const;
     // TODO
+    template <typename T> const T &Get(unsigned int index) const;
     template <typename T> const T &Get(unsigned int index, T &result) const;
+    template <typename T> bool Set(unsigned int index, const T &input) {
+        T *resultptr = reinterpret_cast<T *>(GetElementPointer(index));
+
+        if (resultptr) {
+            *resultptr = input;
+            return true;
+        }
+
+        return false;
+    }
 
     void operator delete(void *ptr, std::size_t bytes) {
         Free(ptr, bytes, "Attrib::Attribute");
@@ -789,15 +784,9 @@ class Instance {
         return mCollection;
     }
 
-    void SetDefaultLayout(unsigned int bytes) const {
+    void SetDefaultLayout(unsigned int bytes) {
         if (mLayoutPtr == nullptr) {
             mLayoutPtr = const_cast<void *>(DefaultDataArea(bytes));
-        }
-    }
-
-    void SetDefaultLayout(unsigned int bytes) const {
-        if (mLayoutPtr == nullptr) {
-            const_cast<Instance *>(this)->mLayoutPtr = const_cast<void *>(DefaultDataArea(bytes));
         }
     }
 
@@ -842,7 +831,7 @@ class Instance {
 
     UTL::COM::IUnknown *mOwner;    // offset 0x0, size 0x4
     const Collection *mCollection; // offset 0x4, size 0x4
-    mutable void *mLayoutPtr;              // offset 0x8, size 0x4
+    void *mLayoutPtr;              // offset 0x8, size 0x4
     uint32_t mMsgPort;             // offset 0xC, size 0x4
     uint16_t mFlags;               // offset 0x10, size 0x2
     mutable uint16_t mLocks;       // offset 0x12, size 0x2
@@ -930,11 +919,22 @@ template <typename t> class TAttrib : public Attribute {
         Free(ptr, bytes, "Attrib::TAttrib");
     }
 
-    TAttrib() {}
     TAttrib(const Attribute &src) : Attribute(src) {}
     ~TAttrib() {}
 
-    const t &Get(unsigned int index) const;
+    const t &Get(unsigned int index) const {
+        const t *resultptr = reinterpret_cast<const t *>(GetElementPointer(index));
+
+        if (!resultptr) {
+            resultptr = reinterpret_cast<const t *>(DefaultDataArea(sizeof(t)));
+        }
+
+        return *resultptr;
+    }
+
+    bool Set(unsigned int index, const t &data) {
+        return Attribute::Set(index, data);
+    }
 };
 
 } // namespace Attrib

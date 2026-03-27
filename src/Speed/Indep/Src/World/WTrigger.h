@@ -5,63 +5,65 @@
 #pragma once
 #endif
 
-#include "Speed/Indep/Libs/Support/Utility/FastMem.h"
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Src/Interfaces/Simables/ISimable.h"
 
 struct EventList;
+struct EventStaticData;
 
 // total size: 0x40
-struct __attribute__((packed)) Trigger {
-    UMath::Vector4 fMatRow0Width;    // offset 0x00, size 0x10
-    unsigned int fType : 4;          // offset 0x10:0
-    unsigned int fShape : 4;         // offset 0x10:4
-    unsigned int fFlags : 24;        // offset 0x11:0
-    float fHeight;                   // offset 0x14, size 0x4
-    EventList *fEvents;              // offset 0x18, size 0x4
-    unsigned short fIterStamp;       // offset 0x1C, size 0x2
-    unsigned short fFingerprint;     // offset 0x1E, size 0x2
-    UMath::Vector4 fMatRow2Length;   // offset 0x20, size 0x10
-    UMath::Vector4 fPosRadius;       // offset 0x30, size 0x10
+struct Trigger {
+    UMath::Vector4 fMatRow0Width; // offset 0x0, size 0x10
+    unsigned int fType : 4;      // offset 0x10
+    unsigned int fShape : 4;     // offset 0x10
+    unsigned int fFlags : 24;    // offset 0x10
+    float fHeight;               // offset 0x14, size 0x4
+    EventList *fEvents;          // offset 0x18, size 0x4
+    unsigned short fIterStamp;   // offset 0x1C, size 0x2
+    unsigned short fFingerprint; // offset 0x1E, size 0x2
+    UMath::Vector4 fMatRow2Length; // offset 0x20, size 0x10
+    UMath::Vector4 fPosRadius;   // offset 0x30, size 0x10
 };
 
 // total size: 0x40
 class WTrigger : public Trigger {
   public:
-    void *operator new(std::size_t size) { return gFastMem.Alloc(size, nullptr); }
-    void operator delete(void *mem, std::size_t size) {
-        if (mem) {
-            gFastMem.Free(mem, size, nullptr);
-        }
+    WTrigger();
+    WTrigger(const UMath::Matrix4 &mat, const UMath::Vector3 &dimensions, EventList *eventList, unsigned int flags);
+    WTrigger(const UMath::Matrix4 &mat, float radius, float height, EventList *eventList, unsigned int flags);
+    ~WTrigger();
+
+    void FireEvents(HSIMABLE hSimable);
+    bool HasEvent(unsigned int eventID, const EventStaticData **foundEvent) const;
+    bool TestDirection(const UMath::Vector3 &vec) const;
+    bool TestDirection(const UMath::Vector4 *seg) const;
+    void UpdateBox(const UMath::Matrix4 &mat, const UMath::Vector3 &dimension);
+    void UpdateCylinder(const UMath::Vector3 &position, const UMath::Matrix4 &newRot, const UMath::Vector3 &dim);
+    bool UpdatePos(const UMath::Vector3 &newPos, unsigned int triggerInd);
+
+    void Enable() {
+        fFlags |= 1;
     }
 
-    WTrigger(const UMath::Matrix4 *objectmatrix, const UMath::Vector3 *dim, EventList *eventList,
-             unsigned int flags);
-    ~WTrigger();
-    void FireEvents(HSIMABLE__ *simable);
-    void UpdateBox(const UMath::Matrix4 *objectmatrix, const UMath::Vector3 *dim);
-    void UpdateCylinder(const UMath::Matrix4 *objectmatrix);
-    bool UpdatePos(const UMath::Matrix4 *objectmatrix);
-    void MakeMatrix(UMath::Matrix4 &matrix) const;
-    void GetCenter(UMath::Vector3 &center) const;
-    void GetBase(UMath::Vector3 &base) const;
-    bool HasEvent(unsigned int eventID) const;
+    void Disable() {
+        fFlags &= ~1;
+    }
 
-    inline void Enable() { fFlags |= 1; }
+    bool IsEnabled(bool allowSilencables) const {
+        return (fFlags & 1) != 0;
+    }
 
-    inline void Disable() { fFlags &= ~1; }
-
-    inline bool IsEnabled(bool allowSilencables = true) const {
-        if (!(fFlags & 1))
-            return false;
-        return true;
+    void GetCenter(UMath::Vector3 &center) const {
+        center.x = fPosRadius.x;
+        center.y = fPosRadius.y;
+        center.z = fPosRadius.z;
     }
 };
 
 // total size: 0x8
 struct FireOnExitRec {
-    class WTrigger &mTrigger; // offset 0x0, size 0x4
-    HSIMABLE mhSimable;       // offset 0x4, size 0x4
+    WTrigger &mTrigger; // offset 0x0, size 0x4
+    HSIMABLE mhSimable; // offset 0x4, size 0x4
 };
 
 // total size: 0x10
@@ -71,6 +73,11 @@ class FireOnExitList : public std::set<FireOnExitRec> {};
 class WTriggerManager {
   public:
     void Update(float dT);
+    void ClearAllFireOnExit();
+
+    static bool Exists() {
+        return fgTriggerManager != nullptr;
+    }
 
     static WTriggerManager &Get() {
         return *fgTriggerManager;

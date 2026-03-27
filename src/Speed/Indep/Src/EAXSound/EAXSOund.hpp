@@ -120,6 +120,7 @@ class EAXSound : public AudioMemBase {
 
     void StartSND11();
     void StopSND11();
+    void StartNewGamePlay();
 
     void StopUISoundFX(eMenuSoundTriggers trigger);
     void PlayUISoundFX(eMenuSoundTriggers trigger);

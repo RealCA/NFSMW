@@ -8,10 +8,34 @@
 #include "./WCollision.h"
 #include "Speed/Indep/Libs/Support/Utility/UStandard.h"
 #include "Speed/Indep/Libs/Support/Utility/UTypes.h"
+#include "Speed/Indep/Libs/Support/Utility/UVectorMath.h"
 
 struct WCollisionTri {
     WCollisionTri() {}
 
+    void GetNormal(UMath::Vector3 *norm) const {
+        UMath::Vector3 vecX;
+        UMath::Vector3 vecZ;
+        UMath::Vector3 normal;
+
+        vecZ.x = fPt1.x - fPt0.x;
+        vecZ.y = fPt1.y - fPt0.y;
+        vecZ.z = fPt1.z - fPt0.z;
+
+        vecX.x = fPt0.x - fPt2.x;
+        vecX.y = fPt0.y - fPt2.y;
+        vecX.z = fPt0.z - fPt2.z;
+
+        VU0_v3crossprod(vecZ, vecX, normal);
+
+        if (normal.x == 0.0f && normal.y == 0.0f && normal.z == 0.0f) {
+            norm->x = 0.0f;
+            norm->y = 1.0f;
+            norm->z = 0.0f;
+        } else {
+            VU0_v3unit(normal, *norm);
+        }
+    }
     // total size: 0x30
     UMath::Vector3 fPt0;                  // offset 0x0, size 0xC
     const struct SimSurface *fSurfaceRef; // offset 0xC, size 0x4
@@ -20,7 +44,6 @@ struct WCollisionTri {
     UMath::Vector3 fPt2;                  // offset 0x20, size 0xC
     WSurface fSurface;                    // offset 0x2C, size 0x2
     unsigned short PAD;                   // offset 0x2E, size 0x2
-
 };
 
 DECLARE_CONTAINER_TYPE(WCollisionWarnVector);

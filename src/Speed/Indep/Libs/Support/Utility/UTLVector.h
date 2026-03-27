@@ -59,12 +59,20 @@ template <typename T, int Alignment = 16> class Vector {
         return mBegin + mSize;
     }
 
-    reference operator[](size_type idx) {
-        return *(mBegin + idx);
+    const_reference operator[](unsigned int idx) const {
+        return mBegin[idx];
     }
 
-    const_reference operator[](size_type idx) const {
-        return *(mBegin + idx);
+    reference operator[](unsigned int idx) {
+        return mBegin[idx];
+    }
+
+    void push_back() {
+        if (size() >= capacity()) {
+            reserve(GetGrowSize(size() + 1));
+        }
+        new (&mBegin[size()]) T();
+        mSize++;
     }
 
     void push_back(value_type const &val) {
@@ -77,6 +85,60 @@ template <typename T, int Alignment = 16> class Vector {
 
     void pop_back() {
         mSize = size() - 1;
+    }
+
+    void resize(size_type num) {
+        while (size() > num) {
+            pop_back();
+        }
+        while (size() < num) {
+            reserve(GetGrowSize(size() + 1));
+            push_back();
+        }
+    }
+
+    bool Contains(pointer p) {
+        size_type index = p - mBegin;
+        return index < capacity();
+    }
+
+    void assign(const Vector &src) {
+        assign(src.begin(), src.end());
+    }
+
+    void assign(const_iterator srcBeg, const_iterator srcEnd) {
+        size_type minSize = srcEnd - srcBeg;
+        const_iterator srcIt = srcBeg;
+        iterator destIt = begin();
+
+        resize(minSize);
+
+        if (capacity() < minSize || !Contains(destIt)) {
+            make_empty();
+            reserve(minSize);
+        }
+
+        destIt = begin();
+        srcIt = srcBeg;
+
+        iterator endIt = end();
+        while (destIt != endIt && srcIt != srcEnd) {
+            value_type &dest = *destIt;
+            const value_type &src = *srcIt;
+            dest = src;
+            ++destIt;
+            ++srcIt;
+        }
+
+        while (end() != destIt) {
+            pop_back();
+        }
+
+        while (srcIt != srcEnd) {
+            const value_type &val = *srcIt;
+            push_back(val);
+            ++srcIt;
+        }
     }
 
     void reserve(size_type num) {
@@ -158,11 +220,8 @@ template <typename T, int Alignment = 16> class Vector {
     virtual void FreeVectorSpace(pointer buffer, size_type num) {}
 
     virtual size_type GetGrowSize(size_type minSize) const {
-        size_type growSize = mCapacity + ((mCapacity + 1) >> 1);
-        if (growSize < minSize) {
-            growSize = minSize;
-        }
-        return growSize;
+        size_type grow = mCapacity + ((mCapacity + 1) >> 1);
+        return grow < minSize ? minSize : grow;
     }
 
     virtual size_type GetMaxCapacity() const {
@@ -182,6 +241,16 @@ template <typename T, int Size, int Alignment = 16> class FixedVector : public V
   public:
     FixedVector() {}
 
+    FixedVector(const FixedVector &src) : Vector<T, Alignment>() {
+        Vector<T, Alignment>::Init();
+        *this = src;
+    }
+
+    FixedVector &operator=(const FixedVector &rhs) {
+        Vector<T, Alignment>::assign(rhs);
+        return *this;
+    }
+
     ~FixedVector() override {
         // clang is being annoying
         Vector<T, Alignment>::clear();
@@ -191,13 +260,10 @@ template <typename T, int Size, int Alignment = 16> class FixedVector : public V
 
   protected:
     virtual std::size_t GetGrowSize(std::size_t minSize) const {
-        (void)minSize;
         return Size;
     }
 
     virtual typename Vector<T, Alignment>::pointer AllocVectorSpace(std::size_t num, unsigned int alignment) {
-        (void)num;
-        (void)alignment;
         return reinterpret_cast<typename Vector<T, Alignment>::pointer>(mVectorSpace);
     }
 

@@ -21,20 +21,6 @@ template <typename T, int U> class Listable {
     typedef value_type *pointer;
     typedef value_type const *const_pointer;
 
-#if MILESTONE_OPT
-    class List : public FixedVector<pointer, U> {
-      public:
-        typedef T value_type;
-        typedef value_type *pointer;
-        typedef value_type const *const_pointer;
-
-        // List(const List &);
-        List() {}
-        ~List() override {}
-
-        // List &operator=(List &);
-    };
-#else
     class List : public _Storage<pointer, U> {
       public:
         typedef T value_type;
@@ -42,15 +28,14 @@ template <typename T, int U> class Listable {
         typedef value_type const *const_pointer;
 
         // List(const List &);
-        List() { this->reserve(U); }
-        ~List() override {}
+        List();
+        virtual ~List() {}
 
         // List &operator=(List &);
     };
-#endif
 
     typedef void (*ForEachFunc)(pointer);
-    typedef bool (*ComparisonFunc)(const_pointer, const_pointer);
+    typedef bool (*ComparisonFunc)(pointer, pointer);
 
   protected:
     Listable() {
@@ -81,16 +66,12 @@ template <typename T, int U> class Listable {
         std::sort(_mTable.begin(), _mTable.end(), pred);
     }
 
-    static int Count() {
-        return _mTable.size();
-    }
-
   private:
     static List _mTable;
 };
 
-template <typename T, int N>
-typename Listable<T, N>::List Listable<T, N>::_mTable;
+template <typename T, int U>
+Listable<T, U>::List::List() {}
 
 template <typename T, int ListSize, typename Enum, std::size_t EnumMax> class ListableSet {
   public:
@@ -125,7 +106,7 @@ template <typename T, int ListSize, typename Enum, std::size_t EnumMax> class Li
             _buckets[idx].push_back(t);
         }
 
-        void _remove(iterator t, std::size_t idx) {
+        void _remove(pointer t, std::size_t idx) {
             List &bucket = _buckets[idx];
             typename List::iterator newend = std::remove(bucket.begin(), bucket.end(), t);
             if (newend != bucket.end()) {
@@ -152,19 +133,29 @@ template <typename T, int ListSize, typename Enum, std::size_t EnumMax> class Li
 
     void UnList() {
         for (std::size_t i = 0; i < EnumMax; i++) {
-            _mLists._remove(static_cast<iterator>(this), i);
+            _mLists._remove(static_cast<pointer>(this), i);
         }
-    }
-
-    void UnList(Enum from) {
-        _mLists._remove(static_cast<iterator>(this), from);
     }
 
     ~ListableSet() {
         UnList();
     }
 
-    iterator Next(Enum idx) {}
+    iterator Next(Enum idx) {
+        const List &list = GetList(idx);
+        const pointer *iter = std::find(list.begin(), list.end(), static_cast<const_pointer>(this));
+
+        if (iter == list.end()) {
+            return nullptr;
+        }
+
+        ++iter;
+        if (iter == list.end()) {
+            return nullptr;
+        }
+
+        return *iter;
+    }
 
     void AddToList(Enum to) {
         _mLists._add(static_cast<iterator>(this), to);
@@ -174,18 +165,9 @@ template <typename T, int ListSize, typename Enum, std::size_t EnumMax> class Li
     static _ListSet _mLists;
 };
 
-template <class T, int EnumMax, typename Enum, unsigned int U>
-int ListableSet<T, EnumMax, Enum, U>::Count(Enum idx) {
-    return _mLists._buckets[idx].size();
-}
-
-template <class T, int EnumMax, typename Enum, unsigned int U>
-T *ListableSet<T, EnumMax, Enum, U>::First(Enum idx) {
-    const List &list = _mLists._buckets[idx];
-    if (list.size() != 0) {
-        return *list.begin();
-    }
-    return nullptr;
+template <typename T, int ListSize, typename Enum, std::size_t EnumMax>
+int ListableSet<T, ListSize, Enum, EnumMax>::Count(Enum idx) {
+    return static_cast<int>(_mLists._buckets[idx].size());
 }
 
 template <typename T> class Countable {
@@ -205,12 +187,6 @@ template <typename T> class Countable {
         return _mCount;
     }
 };
-
-template <typename T>
-int Countable<T>::_mCount;
-
-template <typename T, int ListSize, typename Enum, std::size_t EnumMax>
-typename ListableSet<T, ListSize, Enum, EnumMax>::_ListSet ListableSet<T, ListSize, Enum, EnumMax>::_mLists;
 
 }; // namespace Collections
 }; // namespace UTL

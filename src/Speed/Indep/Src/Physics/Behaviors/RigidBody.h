@@ -324,7 +324,7 @@ class RigidBody : public Behavior,
     bool IsImmobile() const override;
 
     // ICollisionHandler
-    override bool OnWCollide(const WCollisionMgr::WorldCollisionInfo &cInfo, const UMath::Vector3 &cPoint, void *userdata);
+    bool OnWCollide(const WCollisionMgr::WorldCollisionInfo &cInfo, const UMath::Vector3 &cPoint, void *userdata) override;
 
     // Virtual methods
     virtual void OnDebugDraw();

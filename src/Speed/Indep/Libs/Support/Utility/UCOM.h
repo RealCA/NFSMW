@@ -54,6 +54,10 @@ class Object {
         return gFastMem.Alloc(size, nullptr);
     }
 
+    void *operator new(std::size_t size, const char *name) {
+        return gFastMem.Alloc(size, name);
+    }
+
     Object(std::size_t icount) : _mInterfaces(icount) {}
 
     ~Object() {}
@@ -185,5 +189,18 @@ typename Factory<_BUILD_PARAMETERS, _PRODUCT, _PRODUCT_SIGNATURE>::Prototype *
 
 } // namespace COM
 } // namespace UTL
+
+template <typename T, typename U, typename V>
+typename UTL::COM::Factory<T, U, V>::_PRODUCT
+UTL::COM::Factory<T, U, V>::CreateInstance(
+    typename UTL::COM::Factory<T, U, V>::_PRODUCT_SIGNATURE sig,
+    typename UTL::COM::Factory<T, U, V>::_BUILD_PARAMETERS params) {
+    for (const Prototype *f = Prototype::GetHead(); f != nullptr; f = f->GetNext()) {
+        if (f->mSignature == sig) {
+            return f->mConstructor(params);
+        }
+    }
+    return nullptr;
+}
 
 #endif

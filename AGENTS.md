@@ -22,13 +22,6 @@ selected ninja target sequentially, writes per-platform logs under `build/<VERSI
 prints failure tails with the exact failing command, and restores the worktree to
 `GOWE69` by default when it finishes.
 
-If a branch touching build generation makes `ninja` restart `configure.py` in a loop,
-fall back to a direct single-TU ProDG compile for validation instead of fighting the
-generator. Copy the `rule prodg` command and the TU's `cflags` from `build.ninja`,
-compile the affected `SourceLists/z*.cpp` straight to `build/GOWE69/src/.../*.o`, run
-`python tools/transform_dep.py` on the emitted depfile, and then use
-`decomp-workflow.py diff|verify` against the rebuilt object.
-
 ## Project Layout
 
 ```
@@ -108,24 +101,6 @@ python tools/elf_lookup.py 0x002F1234 --game ps2
 This is the preferred replacement for ad-hoc Python snippets that manually parse the ELF
 to chase `@stringBase0` or other rodata/data references.
 
-### check_tu_strings.py — Compare TU string refs against the original object
-
-When you want to verify that a translation unit's string literals still match the
-original object after source cleanup, use:
-
-```sh
-python tools/check_tu_strings.py -u main/Speed/Indep/SourceLists/zTrack
-python tools/check_tu_strings.py -u main/Speed/Indep/SourceLists/zTrack --all
-python tools/check_tu_strings.py -u main/Speed/Indep/SourceLists/zTrack --search CODEINE
-```
-
-It compares printable string-like `.text` relocation targets between the rebuilt and
-original objects for one unit, collapses PPC hi/lo relocation pairs into one callsite,
-reports the owning function for each callsite, and surfaces content/count mismatches by
-string value. Use it before and after changing debug/profiler/network string literals,
-and when you suspect a TU still has ownership or static-init issues that only show up as
-string relocation drift.
-
 ### code-style — Repo-local style guidance
 
 When you are writing code, polishing code you already touched, or doing a style-review pass,
@@ -136,9 +111,6 @@ placement, pointer style, and how to keep style work safe in match-sensitive cod
 Use `python tools/code_style.py audit --base origin/main` before a branch-wide style pass.
 It classifies changed files, reports repo-specific findings, and can run clang-format
 across eligible changed C/C++ files by default.
-`audit` now prefers real header definitions over conflicting forward declarations when it
-checks `class` / `struct` kind, and it suppresses pad-like member warnings when Dwarf / PS2
-already proves that names such as `pad`, `pad0`, or `pad1` are real.
 
 ### decomp-diff.py — Diff & symbol overview
 
@@ -370,7 +342,6 @@ This is a **C++98** codebase compiled with ProDG GC 3.9.3 (GCC 2.95 under the ho
 - Inline assembly is acceptable when needed to reproduce dead code or compiler scheduling that source alone cannot express cleanly
 - Preserve the original `class` vs `struct` kind. Check existing headers first, then Dwarf / PS2 info when needed. Even forward declarations and local partial declarations should use the accurate keyword when known.
 - Prefer including the real repo header over introducing a local forward declaration for a project type. If a type already has a header in `src/`, include it instead of redeclaring it locally.
-- Treat `code_style.py audit` include-owner warnings as advisory when the suggested header is only another forward declaration or would create a circular include. Prefer the real owning definition when one exists; otherwise keep the verified forward declaration.
 - If a subsystem already has a stub owner header and the debug line info points back at that subsystem, fill the owner header instead of keeping a recovered project type declaration in a `.cpp`.
 - Preserve original member names, types, order, and proven layout comments. Do not invent `pad`, `unk`, or `field_XXXX` members just to satisfy a guessed size or offset; verify the real members with `find-symbol.py`, GC Dwarf, and PS2 data, and leave a short TODO if a layout detail is still uncertain.
 - Follow DWARF member naming exactly (`mMember` vs `m_member`) instead of normalizing names
@@ -421,8 +392,6 @@ A function is only done when both objdiff and normalized DWARF are exact. Treat 
 result.
 
 The dwarf of your structs doesn't have to neccessarily match the original due to various reasons, just make sure that you copied everything correctly.
-
-Do **not** add unreachable/dead code (`if (0)`, code after unconditional `return`, fake unused stack buffers, or similar) purely to inflate DWARF matches. If a function only "matches" because of dead-code padding that a human would not have written, treat it as unfinished and keep searching for the real live source shape.
 
 Never dismiss a diff as "close enough" or "just register allocation." Every mismatched
 instruction is a signal that the source doesn't perfectly represent the original. Even
@@ -503,20 +472,6 @@ register assignments but does NOT affect integer register assignments (and vice 
   Every local that is NOT in the DWARF is a spurious temporary — remove it.
 - Every local that IS in the DWARF must exist in the source, even if you don't use the name.
   Name it exactly as the DWARF shows.
-- When objdiff is already exact but a local only differs by lexical scope, try an equivalent
-  loop form that keeps the temporary inside the same block as the original DWARF. In practice,
-  changing a `for (...; ...; x = next)` into a `while (...) { T *next = ...; ...; x = next; }`
-  can fix DWARF-only scope mismatches without changing codegen.
-
-### Slot-pooled delete paths
-
-- If a recovered local/project type participates in `delete` paths or container/list teardown,
-  check whether the original type exposed inline `operator new` / `operator delete`. Missing
-  slot-pool-backed operators often makes GCC emit `__builtin_delete` instead of the original
-  allocator/free path and can also move destructor/delete DWARF ownership out of the TU.
-- This applies even when the TU mostly allocates the type manually through `bOMalloc` or a
-  pool helper. Restoring the inline operators can still be necessary so `delete` expressions
-  and synthesized cleanup paths match the original code and DWARF.
 
 ### Virtual vs direct calls
 
@@ -538,16 +493,6 @@ register assignments but does NOT affect integer register assignments (and vice 
   them as normal function bodies; their presence in source is controlled by `#include`.
 - If an inline appears in the DWARF but does not exist in `src/`, deduce its body and add
   it to the correct header (use `line-lookup` skill to find the header file).
-- When DWARF shows tiny shared `bWare`/allocation-parameter helpers (`bMemoryGet*`,
-  flag extractors, alignment helpers, etc.), prefer recovering the helper inline in the
-  owning `bWare` header over open-coding the bit tests at each callsite. This usually
-  improves both objdiff and DWARF ownership at once.
-- In jumbo/source-list TUs, treat DWARF file ownership on tiny helpers as a strong signal.
-  If a function is still using near-identical local helper clones (`*_TrackStreamer`, local
-  `GetScenerySectionNumber`, raw pointer walkers, etc.) but the DWARF points to a shared
-  header or sibling owner file, move or reuse the shared helper instead of polishing the
-  local clone. Re-homing the helper can improve both objdiff and DWARF without changing
-  the high-level logic.
 
 ---
 
@@ -565,16 +510,6 @@ TU: <translation-unit-name> | Function: <FunctionName>
 ```
 
 <!-- Add new entries below this line -->
-
-### IdentityScaleRestoresbVector2InlineChains
-
-TU: zTrack | Function: TrackStreamer::GetLoadingPriority
-If GC DWARF shows `bVector2::operator*`, `bScale`, and the default `bVector2()` inlines ahead of a predict-position add, keep the source's identity multiply instead of "simplifying" it away. In `TrackStreamer::GetLoadingPriority`, adding the missing `bLength(const bVector2&)` wrapper to `bMath.hpp`, calling that wrapper, and writing `position_entry->Position + position_entry->Velocity * 1.0f` recovered the expected `operator*`/temporary chain and gave a large objdiff + DWARF improvement.
-
-### CombinedPhaseConditionsPreserveFallbackCompare
-
-TU: zTrack | Function: TrackStreamer::ChooseSectionToJettison
-When assembly shows a phase compare, then a helper/status subcondition, then a second phase compare on failure, prefer combined conditions like `if (phase == A && condA) ... else if (phase == B && condB) ...` over nested `if (phase == A) { if (condA) ... } else if (phase == B) { ... }`. In `ChooseSectionToJettison`, rewriting the texture/geometry jettison tests into combined `else if` conditions preserved the fallback compare against the second phase and turned a `90.4%` function into full `match+`.
 
 ### ExplicitInlineSpecialMembersForSTLElements
 

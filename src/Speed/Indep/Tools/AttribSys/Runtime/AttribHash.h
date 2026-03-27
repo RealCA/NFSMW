@@ -26,10 +26,17 @@ class StringKey {
         mString = str;
     }
 
-    StringKey(const StringKey &src)
-        : mHash64(src.mHash64) //
-        , mHash32(src.mHash32) //
-        , mString(src.mString) {
+    StringKey(const StringKey &src) {
+        mHash64 = src.mHash64;
+        mHash32 = src.mHash32;
+        mString = src.mString;
+    }
+
+    const StringKey &operator=(const StringKey &rhs) {
+        mString = rhs.mString;
+        mHash64 = rhs.mHash64;
+        mHash32 = rhs.mHash32;
+        return *this;
     }
 
     bool operator==(const StringKey &rhs) const {
@@ -48,12 +55,15 @@ class StringKey {
         return mHash32;
     }
 
-    const char *GetString() const {
-        return mString;
-    }
-
     bool IsValid() const {
         return mString != nullptr;
+    }
+
+    bool IsEmpty() const {
+        if (mString != nullptr) {
+            return *mString == '\0';
+        }
+        return true;
     }
 
     const char *GetString() const {
@@ -61,7 +71,6 @@ class StringKey {
     }
 
   private:
-    // total size: 0x10
     unsigned long long mHash64; // offset 0x0, size 0x8
     unsigned int mHash32;       // offset 0x8, size 0x4
     const char *mString;        // offset 0xC, size 0x4
