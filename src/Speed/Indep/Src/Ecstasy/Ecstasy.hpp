@@ -285,13 +285,13 @@ struct ePoly {
 
     void operator delete(void *ptr) {}
 
-    void SetFlags(unsigned char i) {}
+    void SetFlags(unsigned char i) { flags = i; }
 
     void SetFlailer(unsigned char i) { Flailer = i; }
 
-    unsigned char GetFlags() {}
+    unsigned char GetFlags() { return flags; }
 
-    unsigned char GetFlailer() {}
+    unsigned char GetFlailer() { return Flailer; }
 };
 
 struct OnScreenRain {

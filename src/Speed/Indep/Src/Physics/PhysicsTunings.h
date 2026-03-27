@@ -5,6 +5,8 @@
 #pragma once
 #endif
 
+#include "Speed/Indep/bWare/Inc/bWare.hpp"
+
 namespace Physics {
 
 enum eCustomTuningType {
@@ -26,10 +28,6 @@ struct Tunings {
         MAX_TUNINGS = 7,
     };
     float Value[7]; // offset 0x0, size 0x1C
-
-    Tunings() {
-        Default();
-    }
 
     void Default();
 

@@ -5,16 +5,11 @@
 #pragma once
 #endif
 
-#include "Speed/Indep/Libs/Support/Utility/FastMem.h"
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include <cstddef>
 
 namespace UTL {
-#if MILESTONE_OPT
-template <typename T, unsigned int Alignment = 16> class Vector {
-#else
 template <typename T, int Alignment = 16> class Vector {
-#endif
   public:
     typedef T value_type;
     typedef value_type *pointer;
@@ -65,7 +60,11 @@ template <typename T, int Alignment = 16> class Vector {
     }
 
     reference operator[](size_type idx) {
-        return mBegin[idx];
+        return *(mBegin + idx);
+    }
+
+    const_reference operator[](size_type idx) const {
+        return *(mBegin + idx);
     }
 
     void push_back(value_type const &val) {
@@ -126,9 +125,6 @@ template <typename T, int Alignment = 16> class Vector {
     }
 
     iterator erase(iterator begIt, iterator endIt) {
-        if (begIt == mBegin + mSize) {
-            return mBegin + mSize;
-        }
         size_type iPos = indexof(begIt);
         size_type num = endIt - begIt;
         for (iterator it = begIt; it != endIt; ++it) {
@@ -136,13 +132,13 @@ template <typename T, int Alignment = 16> class Vector {
             obj.~T();
         }
 
-        for (size_type ii = 0; ii < size() - (iPos + num); ii++) {
+        for (size_type ii = 0; ii < size() - (iPos + num); ++ii) {
             size_type src = iPos + num + ii;
             size_type dest = iPos + ii;
+
             new (&mBegin[dest]) T(mBegin[src]);
         }
-        mSize -= num;
-        (void)size();
+        mSize = size() - num;
         return end();
     }
 
@@ -162,11 +158,12 @@ template <typename T, int Alignment = 16> class Vector {
     virtual void FreeVectorSpace(pointer buffer, size_type num) {}
 
     virtual size_type GetGrowSize(size_type minSize) const {
-        return UMath::Max(mCapacity + ((mCapacity + 1) >> 1), minSize);
+        return UMath::Max(minSize, mCapacity + ((mCapacity + 1) >> 1)); // TODO is this right?
     }
 
+    // Unfinished
     virtual size_type GetMaxCapacity() const {
-        return 0x7FFFFFFF;
+        return 0;
     }
 
     virtual void OnGrowRequest(size_type newSize) {}
@@ -178,11 +175,7 @@ template <typename T, int Alignment = 16> class Vector {
     size_type mSize;     // offset 0x8, size 0x4
 };
 
-#if MILESTONE_OPT
 template <typename T, std::size_t Size, unsigned int Alignment = 16> class FixedVector : public Vector<T, Alignment> {
-#else
-template <typename T, int Size, int Alignment = 16> class FixedVector : public Vector<T, Alignment> {
-#endif
   public:
     FixedVector() {}
 
@@ -194,18 +187,21 @@ template <typename T, int Size, int Alignment = 16> class FixedVector : public V
     // TODO also put the typedefs here according to the dwarf?
 
   protected:
+    // Unfinished
     virtual std::size_t GetGrowSize(std::size_t minSize) const {
-        return Size;
+        return 0;
     }
 
+    // Unfinished
     virtual typename Vector<T, Alignment>::pointer AllocVectorSpace(std::size_t num, unsigned int alignment) {
-        return reinterpret_cast<typename Vector<T, Alignment>::pointer>(mVectorSpace);
+        return nullptr;
     }
 
     virtual void FreeVectorSpace(typename Vector<T, Alignment>::pointer buffer, std::size_t) {}
 
+    // Unfinished
     virtual std::size_t GetMaxCapacity() const {
-        return Size;
+        return 0;
     }
 
   private:
@@ -213,29 +209,6 @@ template <typename T, int Size, int Alignment = 16> class FixedVector : public V
     int mVectorSpace[(sizeof(typename Vector<T, Alignment>::value_type) * Size) / sizeof(int)];
 };
 
-
-#if MILESTONE_OPT
-template <typename T, unsigned int Alignment = 16> class FastVector : public Vector<T, Alignment> {
-#else
-template <typename T, int Alignment = 16> class FastVector : public Vector<T, Alignment> {
-#endif
-  public:
-    FastVector() {}
-
-    ~FastVector() override {
-        Vector<T, Alignment>::clear();
-    }
-
-  protected:
-    typename Vector<T, Alignment>::pointer AllocVectorSpace(std::size_t num, unsigned int alignment) override {
-        return static_cast<typename Vector<T, Alignment>::pointer>(
-            gFastMem.Alloc(num * sizeof(T), "FastVector"));
-    }
-
-    void FreeVectorSpace(typename Vector<T, Alignment>::pointer buffer, std::size_t num) override {
-        gFastMem.Free(buffer, num * sizeof(T), "FastVector");
-    }
-};
 }; // namespace UTL
 
 #endif

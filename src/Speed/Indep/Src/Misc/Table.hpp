@@ -237,18 +237,10 @@ struct PidError {
     }
 
 #ifdef _MSC_VER
-    void operator delete(void *mem, const char *name) {
-        if (mem) {
-            gFastMem.Free(mem, sizeof(PidError), nullptr);
-        }
-    }
-
-    void operator delete(void *mem, unsigned int size, const char *name) {
-        if (mem) {
-            gFastMem.Free(mem, size, nullptr);
-        }
-    }
+    void operator delete(void *mem, const char *name) {}
 #endif
+
+    // void operator delete(void *mem, unsigned int size, const char *name) {}
 
     PidError(int nIntegralTerms, int nDerivativeTerms, float f_frequency)
         : aTimes(nIntegralTerms),        //

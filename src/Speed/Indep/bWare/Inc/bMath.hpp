@@ -46,7 +46,11 @@ inline float bTan(unsigned short angle) {
 inline float bSqrt(float x) {
     const float bSqrtEPS = 5e-11f;
 
-    float y0;
+    float y0
+#ifdef _MSC_VER
+        = 0.0f
+#endif
+        ;
     float y1;
     float t0;
     float t1;
@@ -79,7 +83,7 @@ inline float bSqrt(float x) {
         y0 = 0.0f;
     }
 #elif defined(EA_PLATFORM_XENON)
-    y0 = x > bSqrtEPS ? sqrtf(x) : 0.0f;
+// TODO
 #elif defined(EA_PLATFORM_PLAYSTATION2)
 // TODO
 #else
@@ -90,7 +94,11 @@ inline float bSqrt(float x) {
 }
 
 inline int bMin(int a, int b) {
-    return a > b ? b : a;
+    if (b < a) {
+        return b;
+    } else {
+        return a;
+    }
 }
 
 inline float bMin(float a, float b) {
@@ -106,7 +114,11 @@ inline float bMin(float a, float b) {
 }
 
 inline int bMax(int a, int b) {
-    return a > b ? a : b;
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
 }
 
 inline float bMax(float a, float b) {
@@ -126,6 +138,10 @@ inline int bAbs(int a) {
         return -a;
     }
     return a;
+}
+
+inline int bMult(int a, int b) {
+    return (static_cast<long long>(a) * b) >> 16;
 }
 
 inline float bAbs(float a) {
@@ -187,16 +203,14 @@ inline float bDegToRad(float degrees) {
 }
 
 inline float bAngToDeg(unsigned short angle) {
-    return static_cast<unsigned int>(angle) * (65536.0f / 360.0f);
+    return static_cast<unsigned int>(angle) * (360.0f / 65536.0f);
 }
 
 inline float bCos(float angle) {
     return bSin(angle + bDegToRad(90.0f));
 }
 
-inline float bRadToDeg(float radians) {
-    return radians * 57.29578f;
-}
+inline float bRadToDeg(float radians) {}
 
 inline float bAngToRad(short angle) {}
 
@@ -213,33 +227,33 @@ struct bVector2 {
 
     bVector2() {}
 
-    bVector2 operator+() {}
-
     bVector2(float _x, float _y);
 
-    bVector2(const bVector2 &v);
+    bVector2 operator+(const bVector2 &v) const;
 
-    bVector2 operator-(const bVector2 &v);
+    bVector2 operator-(const bVector2 &v) const;
+
+    bVector2 operator*(float f) const;
+
+    bVector2 operator-() const;
+
+    bVector2 &operator-=(const bVector2 &v);
+
+    bVector2 &operator+=(const bVector2 &v);
+
+    bVector2 &operator*=(float scale);
+
+    bVector2 &operator/=(float inv_scale);
+
+    int operator==(const bVector2 &v);
 
     bVector2 &operator=(const bVector2 &v);
 
-    bVector2 &operator*=(float scale) {}
+    // bVector2(const bVector2 &v) {} // compiler generated
 
-    bVector2 &operator/=(float inv_scale) {}
+    // bVector2 operator+() {} // not present in dwarf
 
-    int operator==(const bVector2 &v) {}
-
-    float &operator[](int index) {}
-
-    bVector2 operator+(const bVector2 &v) {}
-
-    bVector2 operator-() {}
-
-    bVector2 operator*(float f) {}
-
-    bVector2 &operator-=(const bVector2 &v) {}
-
-    bVector2 &operator+=(const bVector2 &v) {}
+    // float &operator[](int index) {} // not present in dwarf
 };
 
 bVector2 *bNormalize(bVector2 *dest, const bVector2 *v);
@@ -252,27 +266,34 @@ inline bVector2 *bFill(bVector2 *dest, float x, float y) {
     return dest;
 }
 
-inline bVector2 *bCopy(bVector2 *dest, const bVector2 *v) {
-    float x = v->x;
-    float y = v->y;
-    bFill(dest, x, y);
-    return dest;
+inline bVector2 *bSub(bVector2 *dest, const bVector2 *v1, const bVector2 *v2) {
+    float x1 = v1->x;
+    float y1 = v1->y;
+    float x2 = v2->x;
+    float y2 = v2->y;
+    return bFill(dest, x1 - x2, y1 - y2);
+}
+
+inline bVector2 &bVector2::operator-=(const bVector2 &v) {
+    bSub(this, this, &v);
+    return *this;
 }
 
 inline bVector2::bVector2(float _x, float _y) {
     bFill(this, _x, _y);
 }
 
-inline bVector2::bVector2(const bVector2 &v) {
-    bCopy(this, &v);
+inline bVector2 bVector2::operator+(const bVector2 &v) const {
+    float x1 = this->x;
+    float y1 = this->y;
+    float x2 = v.x;
+    float y2 = v.y;
+    float _x = x1 + x2;
+    float _y = y1 + y2;
+    return bVector2(_x, _y);
 }
 
-inline bVector2 &bVector2::operator=(const bVector2 &v) {
-    bCopy(this, &v);
-    return *this;
-}
-
-inline bVector2 bVector2::operator-(const bVector2 &v) {
+inline bVector2 bVector2::operator-(const bVector2 &v) const {
     float x1 = this->x;
     float y1 = this->y;
     float x2 = v.x;
@@ -280,6 +301,38 @@ inline bVector2 bVector2::operator-(const bVector2 &v) {
     float _x = x1 - x2;
     float _y = y1 - y2;
     return bVector2(_x, _y);
+}
+
+inline bVector2 *bCopy(bVector2 *dest, const bVector2 *v) {
+    float x = v->x;
+    float y = v->y;
+    return bFill(dest, x, y);
+}
+
+inline bVector2 &bVector2::operator=(const bVector2 &v) {
+    bCopy(this, &v);
+    return *this;
+}
+
+inline bVector2 *bScale(bVector2 *dest, const bVector2 *v, float scale) {
+    float x = v->x * scale;
+    float y = v->y * scale;
+    return bFill(dest, x, y);
+}
+
+inline bVector2 bScale(const bVector2 &v, float scale) {
+    bVector2 dest;
+    bScale(&dest, &v, scale);
+    return dest;
+}
+
+inline bVector2 &bVector2::operator*=(float scale) {
+    bScale(this, this, scale);
+    return *this;
+}
+
+inline bVector2 bVector2::operator*(float f) const {
+    return bScale(*this, f);
 }
 
 inline float bLength(const bVector2 *v) {
@@ -298,14 +351,6 @@ int bEqual(const bVector2 *v1, const bVector2 *v2, float epsilon);
 
 inline float bDot(const bVector2 *v1, const bVector2 *v2) {
     return v1->x * v2->x + v1->y * v2->y;
-}
-
-inline float bCross(const bVector2 *a, const bVector2 *b) {
-    return a->x * b->y - a->y * b->x;
-}
-
-inline float bDot(const bVector2 &v1, const bVector2 &v2) {
-    return bDot(&v1, &v2);
 }
 
 struct ALIGN_16 bVector3 {
@@ -342,7 +387,6 @@ struct ALIGN_16 bVector3 {
 bVector3 *bNormalize(bVector3 *dest, const bVector3 *v);
 bVector3 *bNormalize(bVector3 *dest, const bVector3 *v, float length);
 bVector3 *bScaleAdd(bVector3 *dest, const bVector3 *v1, const bVector3 *v2, float scale);
-bVector3 *bCross(bVector3 *dest, const bVector3 *v1, const bVector3 *v2);
 
 inline bVector3 *bFill(bVector3 *dest, float x, float y, float z) {
     dest->x = x;
@@ -551,24 +595,30 @@ struct bVector4 {
 
     int operator==(const bVector4 &v) {}
 
-    float &operator[](int index) {}
+    float &operator[](int index) {
+        return reinterpret_cast<float *>(this)[index];
+    }
 
-    const float &operator[](int index) const {}
+    const float &operator[](int index) const {
+        return reinterpret_cast<const float *>(this)[index];
+    }
 
     bVector4 operator+(const bVector4 &v) {
         bVector4 *pv;
-        float x1;
-        float y1;
-        float z1;
-        float w1;
-        float x2;
-        float y2;
-        float z2;
-        float w2;
-        float _x;
-        float _y;
-        float _z;
-        float _w;
+        float x1 = x;
+        float y1 = y;
+        float z1 = z;
+        float w1 = w;
+        float x2 = v.x;
+        float y2 = v.y;
+        float z2 = v.z;
+        float w2 = v.w;
+        float _x = x1 + x2;
+        float _y = y1 + y2;
+        float _z = z1 + z2;
+        float _w = w1 + w2;
+
+        return bVector4(_x, _y, _z, _w);
     }
 
     bVector4 operator-() {
@@ -785,12 +835,29 @@ inline bVector4 bVector4::operator-(const bVector4 &v) {
     return bVector4(_x, _y, _z, _w);
 }
 
-// inline bVector4 &bConvertToBond(bVector4 &dest, const struct bVector4 &v) {
-//     float w; // f13
-//     float z; // f9
-//     float y; // f10
-//     float x; // f0
-// }
+inline bVector4 &bConvertToBond(bVector4 &dest, const bVector4 &v) {
+    float x = v.y;
+    float y = v.z;
+    float z = v.x;
+    float w = v.w;
+    dest.x = -x;
+    dest.y = y;
+    dest.z = z;
+    dest.w = w;
+    return dest;
+}
+
+inline bVector4 &bConvertFromBond(bVector4 &dest, const bVector4 &v) {
+    float x = v.z;
+    float y = v.x;
+    float z = v.y;
+    float w = v.w;
+    dest.x = x;
+    dest.y = -y;
+    dest.z = z;
+    dest.w = w;
+    return dest;
+}
 
 inline bVector3 &bConvertFromBond(bVector3 &dest, const bVector3 &v) {
     float x = v.z;
@@ -826,9 +893,13 @@ struct bMatrix4 {
     bMatrix4(const bMatrix4 &m);
     bMatrix4 &operator=(const bMatrix4 &m);
 
-    bVector4 &operator[](int index) {}
+    bVector4 &operator[](int index) {
+        return reinterpret_cast<bVector4 *>(this)[index];
+    }
 
-    const bVector4 &operator[](int index) const {}
+    const bVector4 &operator[](int index) const {
+        return reinterpret_cast<const bVector4 *>(this)[index];
+    }
 };
 
 inline bMatrix4 *bCopy(bMatrix4 *dest, const bMatrix4 *v) {
@@ -855,9 +926,6 @@ inline void bIdentity(bMatrix4 *a) {
 #error Choose a platform
 #endif
 }
-
-void bConvertFromBond(bMatrix4 &dest, const bMatrix4 &m);
-void bConvertToBond(bMatrix4 &dest, const bMatrix4 &m);
 
 inline void eIdentity(bMatrix4 *a) {
     bIdentity(a);
@@ -898,6 +966,9 @@ struct bQuaternion {
         this->z = _z;
         this->w = _w;
     }
+
+    void GetMatrix(bMatrix4 &mat) const;
+    inline void GetMatrix(bMatrix4 *mat) const { GetMatrix(*mat); }
 
     bQuaternion &Slerp(bQuaternion &r, const bQuaternion &target, float t) const;
 };

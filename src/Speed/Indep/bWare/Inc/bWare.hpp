@@ -10,33 +10,19 @@
 #include "bMemory.hpp"
 #include "bSlotPool.hpp"
 
-#ifdef DEBUG_OPT
-#define ENABLE_IN_DEBUG true
-#else
-#define ENABLE_IN_DEBUG false
-#endif
-
-#ifdef MILESTONE_OPT
-#define ENABLE_IN_MILESTONE true
-#else
-#define ENABLE_IN_MILESTONE false
-#endif
-
-void *bMalloc(int size, int allocation_params);
 #ifdef MILESTONE_OPT
 void *bMalloc(int size, const char *debug_text, int debug_line, int allocation_params);
+
+inline void *bMalloc(int size, int allocation_params) {
+    return bMalloc(size, nullptr, 0, allocation_params);
+}
 #else
+void *bMalloc(int size, int allocation_params);
 
 inline void *bMalloc(int size, const char *debug_text, int debug_line, int allocation_params) {
     return bMalloc(size, allocation_params);
 }
 
-#endif
-
-#ifdef EA_PLATFORM_PLAYSTATION2
-inline void *bMalloc(unsigned int size, int allocation_params) {
-    return bMalloc(static_cast<int>(size), allocation_params);
-}
 #endif
 
 void *bMalloc(SlotPool *slot_pool);
@@ -66,17 +52,23 @@ inline void *operator new[](size_t size, const char *file, int line) {
 #endif
 }
 
-inline char *bGetPlatformName() {
-#ifdef EA_PLATFORM_GAMECUBE
-    return "GAMECUBE";
-#elif defined(EA_PLATFORM_PLAYSTATION2)
-    return "PSX2";
-#elif defined(EA_PLATFORM_XENON)
-    return "XENON";
+#ifdef _MSC_VER
+inline void operator delete(void *ptr, const char *, int) {
+#if MILESTONE_OPT
+    bFree(ptr);
 #else
-#error "Platform not specified";
+    delete[] reinterpret_cast<char *>(ptr);
 #endif
 }
+
+inline void operator delete[](void *ptr, const char *, int) {
+#if MILESTONE_OPT
+    bFree(ptr);
+#else
+    delete[] reinterpret_cast<char *>(ptr);
+#endif
+}
+#endif
 
 void bEndianSwap64(void *value);
 void bEndianSwap32(void *value);
@@ -136,7 +128,5 @@ inline int bIsCodeineConnected() {
 inline int bIsBFunkAvailable() {
     return bIsCodeineConnected();
 }
-
-unsigned int bCalculateCrc32(const void *data, int size, unsigned int prev_crc32);
 
 #endif
