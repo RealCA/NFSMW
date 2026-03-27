@@ -20,7 +20,6 @@ class bNode {
     bNode *GetNext() {
         return Next;
     }
-
     bNode *GetPrev() {
         return Prev;
     }
@@ -32,7 +31,7 @@ class bNode {
         insert_point->Prev = this;
         this->Prev = new_prev;
         this->Next = insert_point;
-        return this;
+        return this; // TODO
     }
 
     bNode *AddAfter(bNode *insert_point) {
@@ -42,7 +41,7 @@ class bNode {
         new_next->Prev = this;
         this->Prev = insert_point;
         this->Next = new_next;
-        return this;
+        return this; // TODO
     }
 
     bNode *Remove() {
@@ -62,21 +61,12 @@ template <typename T> struct bTNode : public bNode {
     T *GetNext() {
         return (T *)bNode::GetNext();
     }
-
     T *GetPrev() {
         return (T *)bNode::GetPrev();
     }
-<<<<<<< HEAD
-
-=======
-    T *AddBefore(T *insert_point) {
-        return (T *)bNode::AddBefore(insert_point);
-    }
->>>>>>> clanker2
     T *AddAfter(T *insert_point) {
         return (T *)bNode::AddAfter(insert_point);
     }
-
     T *Remove() {
         return (T *)bNode::Remove();
     }
@@ -103,60 +93,35 @@ struct bList {
         this->HeadNode.Next = &this->HeadNode;
         this->HeadNode.Prev = &this->HeadNode;
     }
-
     int IsEmpty() {
         return this->HeadNode.GetNext() == &this->HeadNode; // TODO
     }
-
     bNode *EndOfList() {
         return &this->HeadNode;
     }
-
     bNode *GetHead() {
         return this->HeadNode.GetNext();
     }
-
     bNode *GetTail() {
         return this->HeadNode.GetPrev();
     }
-
     bNode *GetNextCircular(bNode *node); // TODO
     bNode *GetPrevCircular(bNode *node); // TODO
-
     bNode *AddHead(bNode *node) {
         return node->AddAfter(&this->HeadNode);
     }
-
     bNode *AddTail(bNode *node) {
         return node->AddBefore(&this->HeadNode);
     }
-
-    bNode *AddBefore(bNode *insert_point, bNode *node) {
-        return node->AddBefore(insert_point);
-    }
-
-    bNode *AddAfter(bNode *insert_point, bNode *node) {
-        return node->AddAfter(insert_point);
-    }
-
+    bNode *AddBefore(bNode *insert_point, bNode *node);
+    bNode *AddAfter(bNode *insert_point, bNode *node); // TODO
     bNode *Remove(bNode *node) {
         return node->Remove();
     }
-
     bNode *RemoveHead() {
         return this->GetHead()->Remove();
     }
-<<<<<<< HEAD
-
-    bNode *RemoveTail() {
-        return GetTail()->Remove();
-    }
-
-=======
-    bNode *RemoveTail() {
-        return this->GetTail()->Remove();
-    }
->>>>>>> clanker2
+    bNode *RemoveTail();            // TODO
     int GetNodeNumber(bNode *node); // TODO
 
     int IsInList(bNode *node) {
@@ -318,13 +283,13 @@ template <typename T> class bTList : public bList {
 };
 
 template <typename T>
-T *bTList<T>::AddSorted(typename bTList<T>::SortFuncT check_flip, T *node) {
-    T *insert_point = GetHead();
-    while (insert_point != EndOfList()) {
-        if (check_flip(node, insert_point) == 0) {
-            return node->AddBefore(insert_point);
+T *bTList<T>::AddSorted(SortFuncT check_flip, T *node) {
+    T *current = static_cast<T *>(HeadNode.Next);
+    while (current != reinterpret_cast<T *>(&HeadNode)) {
+        if (check_flip(node, current) == 0) {
+            return static_cast<T *>(node->AddBefore(current));
         }
-        insert_point = insert_point->GetNext();
+        current = static_cast<T *>(current->Next);
     }
     return AddTail(node);
 }
@@ -379,7 +344,7 @@ template <typename T> class bPList : public bTList<bPNode> {
     }
 
     void RemoveTail() {
-        delete reinterpret_cast<bPNode *>(bList::RemoveTail());
+        bList::RemoveTail();
     }
 };
 
