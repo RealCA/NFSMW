@@ -40,6 +40,15 @@
 #include "Speed/Indep/bWare/Inc/bPrintf.hpp"
 #include "types.h"
 
+static unsigned int WAM_START_TRIGGER;
+static unsigned int WAM_STOP_TRIGGER;
+static unsigned int WAM_FIRST_FRAME;
+static unsigned int WAM_LAST_FRAME;
+static unsigned int WAM_SOUND_TRIGGER_START;
+static unsigned int WAM_SOUND_TRIGGER_STOP;
+static unsigned int WAM_NIS_GENERIC_CONTROL_MSG;
+static unsigned int WAM_FWD_REV_TRACK_CONTROL_MSG;
+
 // total size: 0x8
 class NISCar {
   public:
@@ -225,6 +234,8 @@ class NISActivity : public Sim::Activity, public INIS, public EventSequencer::IC
 
     static int mElapsedmsAudioTime;
 };
+
+UTL::COM::Factory<Sim::Param, Sim::IActivity, UCrc32>::Prototype _NISActivity("NISActivity", NISActivity::Construct);
 
 extern int PrecipitationEnable;
 

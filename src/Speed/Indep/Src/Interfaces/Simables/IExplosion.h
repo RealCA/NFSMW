@@ -11,7 +11,6 @@
 
 struct HCAUSE__;
 typedef HCAUSE__ *HCAUSE;
-
 struct HMODEL__;
 typedef HMODEL__ *HMODEL;
 
@@ -25,10 +24,10 @@ class IExplosion : public UTL::COM::IUnknown, public UTL::Collections::Listable<
 
     virtual ~IExplosion() {}
 
-    virtual const UMath::Vector3 &GetOrigin() const = 0;
-    virtual float GetExpansionSpeed() const = 0;
-    virtual float GetMaximumRadius() const = 0;
-    virtual float GetRadius() const = 0;
+    virtual const UMath::Vector3 &GetOrigin() const;
+    virtual float GetExpansionSpeed() const;
+    virtual float GetMaximumRadius() const;
+    virtual float GetRadius() const;
     virtual HCAUSE GetCausality() const = 0;
     virtual float GetCausalityTime() const = 0;
     virtual bool HasDamage() const = 0;

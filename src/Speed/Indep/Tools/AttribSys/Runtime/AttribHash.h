@@ -52,10 +52,6 @@ class StringKey {
         return mString != nullptr;
     }
 
-    bool IsNotEmpty() const {
-        return mString != nullptr && mString[0] != '\0';
-    }
-
     const char *GetString() const {
         return mString;
     }

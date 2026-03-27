@@ -162,7 +162,9 @@ class CareerSettings {
         return CurrentCar;
     }
 
-    void TryAwardDemoMarker();
+    unsigned char GetCurrentBin() {
+        return CurrentBin;
+    }
 
   private:
     uint32 CurrentCar;           // offset 0x0, size 0x4
@@ -272,8 +274,12 @@ class cFrontendDatabase {
         return CurrentUserProfiles[0]->GetCareer();
     }
 
+    GameplaySettings *GetGameplaySettings() {
+        return &CurrentUserProfiles[0]->GetOptions()->TheGameplaySettings;
+    }
+
     bool IsSplitScreenMode() {
-        return FEGameMode & 4 && iNumPlayers == 2;
+        return FEGameMode & 4;
     }
 
     bool IsCareerMode() {

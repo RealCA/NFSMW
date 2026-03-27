@@ -12,6 +12,8 @@ static unsigned int WAM_SOUND_TRIGGER_STOP = bStringHash("WAM_SOUND_TRIGGER_STOP
 static unsigned int WAM_NIS_GENERIC_CONTROL_MSG = bStringHash("WAM_NIS_GENERIC_CONTROL_MSG");
 static unsigned int WAM_FWD_REV_TRACK_CONTROL_MSG = bStringHash("WAM_FWD_REV_TRACK_CONTROL_MSG");
 
+CAnimChooser TheAnimChooser;
+
 CAnimChooser::CAnimChooser() {}
 
 CAnimChooser::~CAnimChooser() {}

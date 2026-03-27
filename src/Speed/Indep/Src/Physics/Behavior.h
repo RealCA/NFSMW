@@ -20,13 +20,6 @@ extern Attrib::StringKey BEHAVIOR_MECHANIC_SUSPENSION;
 
 // total size: 0x10
 struct BehaviorParams {
-    BehaviorParams(const Sim::Param &params, struct PhysicsObject *owner,
-                   const UCrc32 &mechanic, const UCrc32 &signature)
-        : fparams(params) //
-        , fowner(owner) //
-        , fSig(signature) //
-        , fMechanic(mechanic) {}
-
     const Sim::Param &fparams;    // offset 0x0, size 0x4
     struct PhysicsObject *fowner; // offset 0x4, size 0x4
     const UCrc32 &fSig;           // offset 0x8, size 0x4
@@ -35,8 +28,6 @@ struct BehaviorParams {
 
 // total size: 0x4C
 class Behavior : public Sim::Object, public UTL::COM::Factory<const BehaviorParams &, Behavior, UCrc32> {
-    friend class PhysicsObject;
-
   public:
     void *operator new(std::size_t size) {
         return gFastMem.Alloc(size, nullptr);
@@ -50,21 +41,15 @@ class Behavior : public Sim::Object, public UTL::COM::Factory<const BehaviorPara
 
     Behavior(const BehaviorParams &params, unsigned int num_interfaces);
 
-    const UCrc32 &GetMechanic() const {
+    const UCrc32 &GetMechanic() {
         return mMechanic;
     }
 
-    const UCrc32 &GetSignature() const {
+    const UCrc32 &GetSignature() {
         return mSignature;
     }
 
-    void Pause(bool pause);
-
-    static void Destroy(Behavior *b) {
-        delete b;
-    }
-
-    int IsPaused() const {
+    bool IsPaused() {
         return mPaused;
     }
 
@@ -72,17 +57,12 @@ class Behavior : public Sim::Object, public UTL::COM::Factory<const BehaviorPara
         return mIOwner;
     }
 
-    void DoSimulate(float dT) {
-        Sim::Profile::Scope profile(mProfile);
-        OnTaskSimulate(dT);
-    }
-
     void EnableProfile(const char *name) {
         Sim::Profile::Release(mProfile);
         mProfile = Sim::Profile::Create();
     }
 
-    virtual void Reset();
+    virtual void Reset() {}
 
     virtual const int GetPriority() const {
         return mPriority;
@@ -94,24 +74,21 @@ class Behavior : public Sim::Object, public UTL::COM::Factory<const BehaviorPara
         // TODO right place?
     }
 
-    virtual void OnTaskSimulate(float dT);
+  protected:
+    virtual void OnTaskSimulate(float dT) {}
+
     virtual void OnBehaviorChange(const UCrc32 &mechanic) {}
 
-    inline void BehaviorChanged(const UCrc32 &mechanic) {
-        OnBehaviorChange(mechanic);
-    }
+    virtual void OnPause() {}
+    virtual void OnUnPause() {}
 
     virtual ~Behavior() {
         // TODO
         Sim::Profile::Release(nullptr);
     }
 
-  protected:
-    virtual void OnPause();
-    virtual void OnUnPause();
-
   private:
-    int mPaused;                  // offset 0x30, size 0x4
+    bool mPaused;                 // offset 0x30, size 0x1
     struct PhysicsObject *mOwner; // offset 0x34, size 0x4
     ISimable *mIOwner;            // offset 0x38, size 0x4
     const UCrc32 mMechanic;       // offset 0x3C, size 0x4
@@ -125,7 +102,9 @@ template <typename T> class BehaviorSpecsPtr : public AttributeStructPtr<T> {
   public:
     BehaviorSpecsPtr(Behavior *behavior, int index) : AttributeStructPtr<T>(LookupKey(behavior->GetOwner(), index)) {}
 
-    BehaviorSpecsPtr(ISimable *owner, int index) : AttributeStructPtr<T>(LookupKey(owner, index)) {}
+    BehaviorSpecsPtr(ISimable *owner, int index) : AttributeStructPtr<T>(0) {
+        // TODO
+    }
 
     ~BehaviorSpecsPtr();
 

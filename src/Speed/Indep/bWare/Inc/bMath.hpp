@@ -79,7 +79,7 @@ inline float bSqrt(float x) {
         y0 = 0.0f;
     }
 #elif defined(EA_PLATFORM_XENON)
-// TODO
+    y0 = x > bSqrtEPS ? sqrtf(x) : 0.0f;
 #elif defined(EA_PLATFORM_PLAYSTATION2)
 // TODO
 #else
@@ -194,7 +194,9 @@ inline float bCos(float angle) {
     return bSin(angle + bDegToRad(90.0f));
 }
 
-inline float bRadToDeg(float radians) {}
+inline float bRadToDeg(float radians) {
+    return radians * 57.29578f;
+}
 
 inline float bAngToRad(short angle) {}
 
@@ -340,6 +342,7 @@ struct ALIGN_16 bVector3 {
 bVector3 *bNormalize(bVector3 *dest, const bVector3 *v);
 bVector3 *bNormalize(bVector3 *dest, const bVector3 *v, float length);
 bVector3 *bScaleAdd(bVector3 *dest, const bVector3 *v1, const bVector3 *v2, float scale);
+bVector3 *bCross(bVector3 *dest, const bVector3 *v1, const bVector3 *v2);
 
 inline bVector3 *bFill(bVector3 *dest, float x, float y, float z) {
     dest->x = x;

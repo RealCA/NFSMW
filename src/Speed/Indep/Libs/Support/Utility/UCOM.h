@@ -163,18 +163,25 @@ template <typename T, typename U, typename V> class Factory {
 
     ~Factory() {}
 
-    static _PRODUCT CreateInstance(_PRODUCT_SIGNATURE sig, _BUILD_PARAMETERS params) {
-        for (const Prototype *f = Prototype::GetHead(); f != nullptr; f = f->GetNext()) {
-            if (f->mSignature == sig) {
-                return f->mConstructor(params);
-            }
-        }
-        return nullptr;
-    }
+    static _PRODUCT CreateInstance(_PRODUCT_SIGNATURE sig, _BUILD_PARAMETERS params);
 };
 
-template <typename T, typename U, typename V>
-typename Factory<T, U, V>::Prototype *Factory<T, U, V>::Prototype::mHead;
+template <class _BUILD_PARAMETERS, class _PRODUCT, class _PRODUCT_SIGNATURE>
+_PRODUCT *Factory<_BUILD_PARAMETERS, _PRODUCT, _PRODUCT_SIGNATURE>::CreateInstance(
+    _PRODUCT_SIGNATURE sig, _BUILD_PARAMETERS params) {
+    for (const Prototype *f = Prototype::GetHead(); f != nullptr; f = f->GetNext()) {
+        if (f->mSignature == sig) {
+            return f->mConstructor(params);
+        }
+    }
+    return nullptr;
+}
+
+#ifdef _MSC_VER
+template <class _BUILD_PARAMETERS, class _PRODUCT, class _PRODUCT_SIGNATURE>
+typename Factory<_BUILD_PARAMETERS, _PRODUCT, _PRODUCT_SIGNATURE>::Prototype *
+    Factory<_BUILD_PARAMETERS, _PRODUCT, _PRODUCT_SIGNATURE>::Prototype::mHead = nullptr;
+#endif
 
 } // namespace COM
 } // namespace UTL

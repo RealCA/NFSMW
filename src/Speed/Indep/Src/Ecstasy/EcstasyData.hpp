@@ -9,10 +9,7 @@
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
-struct TextureInfo;
-struct eLightContext;
 struct eModel;
-struct ePoly;
 
 enum EVIEW_ID {
     NUM_RVM_VIEWS = 1,
@@ -217,34 +214,7 @@ class eViewPlatInterface {
     static eViewPlatInfo *GimmeMyViewPlatInfo(int view_id);
     eVisibleState GetVisibleStateGB(const bVector3 *aabb_min, const bVector3 *aabb_max, bMatrix4 *local_world);
     eVisibleState GetVisibleStateSB(const bVector3 *aabb_min, const bVector3 *aabb_max, bMatrix4 *local_world);
-    void Render(eModel *model, bMatrix4 *local_to_world, eLightContext *light_context, unsigned int flags, bMatrix4 *blending_matricies);
-    void Render(ePoly *poly, TextureInfo *texture_info, bMatrix4 *local_to_world, int use_previous_data, float bbRad);
-    void Render(ePoly *poly, TextureInfo *texture_info, TextureInfo *texture_info_mask, int use_previous_data);
-    void Render(ePoly *poly, TextureInfo *texture_info, int use_previous_data);
-};
-
-struct eLoadedSolidStats {
-    // total size: 0x14
-    unsigned int NumLoadedLists;           // offset 0x0, size 0x4
-    unsigned int NumLoadedSolids;          // offset 0x4, size 0x4
-    unsigned int TotalSolidsByteSize;      // offset 0x8, size 0x4
-    unsigned int TotalNormalSmootherBytes; // offset 0xC, size 0x4
-    unsigned int TotalDamageBytes;         // offset 0x10, size 0x4
-};
-
-struct eSolidPlatInfo {
-    // total size: 0x24
-    unsigned short Version;              // offset 0x0, size 0x2
-    unsigned short StripFlags;           // offset 0x2, size 0x2
-    unsigned short NumStrips;            // offset 0x4, size 0x2
-    unsigned short NumIdxClrTable;       // offset 0x6, size 0x2
-    unsigned int SizeofStripData;        // offset 0x8, size 0x4
-    unsigned int DataOffset0;            // offset 0xC, size 0x4
-    unsigned int DataOffset1;            // offset 0x10, size 0x4
-    unsigned int DataOffset2;            // offset 0x14, size 0x4
-    unsigned int DataOffset3;            // offset 0x18, size 0x4
-    struct eStripEntry *StripEntryTable; // offset 0x1C, size 0x4
-    unsigned char *StripDataStart;       // offset 0x20, size 0x4
+    void Render(eModel *model, bMatrix4 *matrix, struct eLightContext *light_context, unsigned int flags, unsigned int flags2);
 };
 
 #endif
