@@ -5,7 +5,11 @@
 #pragma once
 #endif
 
+#include "Speed/Indep/bWare/Inc/bChunk.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
+
+class TrackInfo;
+extern TrackInfo *LoadedTrackInfo;
 
 enum eLocationName {
     UPPER_CLASS = 0,
@@ -77,13 +81,21 @@ class TrackInfo {
     float TrackMapZoomWidth;                         // offset 0x118, size 0x4
     char TrackMapStartZoomed;                        // offset 0x11C, size 0x1
 
+    static int LoaderTrackInfo(bChunk *chunk);
+    static int UnloaderTrackInfo(bChunk *chunk);
+    static TrackInfo *GetTrackInfo(int track_number);
+    static int GetLoadedTrackNumber() {
+        if (LoadedTrackInfo) {
+            return LoadedTrackInfo->TrackNumber;
+        }
+        return 0;
+    }
+
     const char *GetLoadedTrackInfo() {
         return this->RegionName;
     }
 
     static TrackInfo* GetTrackInfo(int track_number);
 };
-
-extern TrackInfo *LoadedTrackInfo;
 
 #endif

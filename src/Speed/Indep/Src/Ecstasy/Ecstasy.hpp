@@ -1,6 +1,7 @@
 #ifndef ECSTASY_ECSTASY_H
 #define ECSTASY_ECSTASY_H
 
+#include "Texture.hpp"
 #ifdef EA_PRAGMA_ONCE_SUPPORTED
 #pragma once
 #endif
@@ -8,113 +9,11 @@
 #include "EcstasyData.hpp"
 #include "EcstasyE.hpp"
 #include "Speed/Indep/bWare/Inc/bChunk.hpp"
-#include "Texture.hpp"
 #include "Speed/Indep/bWare/Inc/bList.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
+#include "eModel.hpp"
 
-extern SlotPool *eModelSlotPool;
-
-struct eModel : public bTNode<eModel> {
-    // total size: 0x18
-    unsigned int NameHash;                                     // offset 0x8, size 0x4
-    eSolid *Solid;                                             // offset 0xC, size 0x4
-    struct eReplacementTextureTable *pReplacementTextureTable; // offset 0x10, size 0x4
-    int NumReplacementTextures;                                // offset 0x14, size 0x4
-
-    void Init(unsigned int name_hash);
-    void UnInit();
-    void ReconnectSolid(eSolidListHeader *solid_list_header);
-    void ConnectSolid(eSolid *new_solid);
-    void AttachReplacementTextureTable(eReplacementTextureTable *replacement_texture_table, int num_textures, int instance_index);
-    void RestoreReplacementTextureTable(TextureInfo ***replaced_textures);
-    void ApplyReplacementTextureTable(TextureInfo ***replaced_textures);
-    int GetBoundingBox(bVector3 *min, bVector3 *max);
-    bVector4 *GetPivotPosition();
-    bMatrix4 *GetPivotMatrix();
-    void ReplaceLightMaterial(unsigned int old_name_hash, eLightMaterial *new_light_material);
-    ePositionMarker *GetPostionMarker(ePositionMarker *prev_marker);
-    ePositionMarker *GetPostionMarker(unsigned int namehash);
-
-    static void *operator new(size_t size) {}
-
-    void operator delete(void *ptr) {
-        bFree(eModelSlotPool, ptr);
-    }
-
-    eModel() {}
-
-    ~eModel() {
-        this->UnInit();
-    }
-
-    unsigned int GetNameHash() {
-        return NameHash;
-    }
-
-    eSolid *GetMovedSolid() {} // TODO
-
-    eSolid *GetSolid() {
-        return Solid;
-    }
-};
-
-class eSolidPlatInterface {
-    // total size: 0x4
-    eSolidPlatInfo *PlatInfo; // offset 0x0, size 0x4
-
-  public:
-    int UnloaderPlatChunks(bChunk *chunk);
-    int FixPlatInfo();
-    int UnFixPlatInfo();
-    void SetSmoothVertex(unsigned int vertex_offset, float nx, float ny, float nz);
-
-    eSolidPlatInfo *GetPlatInfo() {
-        return this->PlatInfo;
-    }
-};
-
-struct eSolid : public eSolidPlatInterface, public bTNode<eSolid> {
-    // total size: 0xE0
-    unsigned char Version;                      // offset 0xC, size 0x1
-    unsigned char EndianSwapped;                // offset 0xD, size 0x1
-    unsigned short Flags;                       // offset 0xE, size 0x2
-    unsigned int NameHash;                      // offset 0x10, size 0x4
-    short NumPolys;                             // offset 0x14, size 0x2
-    short NumVerts;                             // offset 0x16, size 0x2
-    char NumBones;                              // offset 0x18, size 0x1
-    char NumTextureTableEntries;                // offset 0x19, size 0x1
-    char NumLightMaterials;                     // offset 0x1A, size 0x1
-    char NumPositionMarkerTableEntries;         // offset 0x1B, size 0x1
-    int ReferencedFrameCounter;                 // offset 0x1C, size 0x4
-    float AABBMinX;                             // offset 0x20, size 0x4
-    float AABBMinY;                             // offset 0x24, size 0x4
-    float AABBMinZ;                             // offset 0x28, size 0x4
-    eTextureEntry *pTextureTable;               // offset 0x2C, size 0x4
-    float AABBMaxX;                             // offset 0x30, size 0x4
-    float AABBMaxY;                             // offset 0x34, size 0x4
-    float AABBMaxZ;                             // offset 0x38, size 0x4
-    eLightMaterialEntry *LightMaterialTable;    // offset 0x3C, size 0x4
-    bMatrix4 PivotMatrix;                       // offset 0x40, size 0x40
-    ePositionMarker *PositionMarkerTable;       // offset 0x80, size 0x4
-    eNormalSmoother *NormalSmoother;            // offset 0x84, size 0x4
-    bTList<eModel> ModelList;                   // offset 0x88, size 0x8
-    struct eDamageVertex *DamageVertexTable;    // offset 0x90, size 0x4
-    struct eConnectivityData *ConnectivityData; // offset 0x94, size 0x4
-    float Volume;                               // offset 0x98, size 0x4
-    float Density;                              // offset 0x9C, size 0x4
-    char Name[64];                              // offset 0xA0, size 0x40
-
-    void GetBoundingBox(bVector3 *min, bVector3 *max);
-    void FixTextureTable();
-    void FixLightMaterialTable();
-    bool NotifyTextureLoading(TexturePack *texture_pack);
-    bool NotifyTextureUnloading(TexturePack *texture_pack);
-    void NotifyTextureMoving(TexturePack *texture_pack);
-    void NotifyTextureMoving(TexturePack *texture_pack, TextureInfo *texture_info);
-    void ReplaceLightMaterial(unsigned int old_name_hash, eLightMaterial *new_light_material);
-    ePositionMarker *GetPostionMarker(ePositionMarker *prev_marker);
-    ePositionMarker *GetPostionMarker(unsigned int namehash);
-};
+extern eView eViews[22];
 
 // total size: 0x68
 struct eView : public eViewPlatInterface {
@@ -155,10 +54,6 @@ struct eView : public eViewPlatInterface {
     void AttachCameraMover(CameraMover *camera_mover);
     void UnattachCameraMover(CameraMover *camera_mover);
 
-    int IsActive() const {
-        return Active;
-    }
-
     int GetID() {
         return this->ID;
     }
@@ -188,6 +83,10 @@ struct eView : public eViewPlatInterface {
         this->Active = state;
     }
 
+    int IsActive() const {
+        return Active;
+    }
+
     CameraMover *GetCameraMover() {
         if (!this->CameraMoverList.IsEmpty()) {
             return this->CameraMoverList.GetHead();
@@ -195,8 +94,6 @@ struct eView : public eViewPlatInterface {
         return nullptr;
     }
 };
-
-extern eView eViews[22];
 
 eView *eGetView(int view_id);
 
@@ -209,10 +106,6 @@ inline eView *eGetView(int view_id, bool doAssert) {
 
 inline void eSwizzleWorldVector(const bVector3 &inVec, bVector3 &outVec) {
     bConvertFromBond(outVec, inVec);
-}
-
-inline void eSwizzleWorldMatrix(const bMatrix4 &inMat, bMatrix4 &outMat) {
-    bConvertFromBond(outMat, inMat);
 }
 
 inline void eUnSwizzleWorldVector(const bVector3 &inVec, bVector3 &outVec) {
@@ -237,6 +130,13 @@ enum ScreenEffectControl {
     SEC_FRAME = 0,
 };
 
+enum ScreenEffectPalette {
+    EFX_CAMERA_FLASH = 0,
+    EFX_TUNNEL = 1,
+    EFX_UNIQUE = 2,
+    EFX_NUMBER = 3,
+};
+
 struct ScreenEffectInf {
     // total size: 0xC
     ScreenEffectControl Controller; // offset 0x0, size 0x4
@@ -255,6 +155,14 @@ struct ScreenEffectDef {
                       struct ScreenEffectDB *); // offset 0x4C, size 0x4
 };
 
+struct ScreenEffectPaletteDef {
+    // total size: 0x10C
+    int NumEffects;                         // offset 0x0, size 0x4
+    ScreenEffectType SE_type[3];           // offset 0x4, size 0xC
+    ScreenEffectDef SE_Def[3];             // offset 0x10, size 0xF0
+    ScreenEffectControl SE_Controller[3];  // offset 0x100, size 0xC
+};
+
 struct ScreenEffectDB {
     // total size: 0x1E8
     eView *MyView;              // offset 0x0, size 0x4
@@ -264,6 +172,18 @@ struct ScreenEffectDB {
     float SE_time;              // offset 0x1E4, size 0x4
 
     ScreenEffectDB();
+    void Update(float deltatime);
+    void AddScreenEffect(ScreenEffectType type, float intensity, float r, float g, float b);
+    void AddScreenEffect(ScreenEffectType type, ScreenEffectDef *info, unsigned int lock, ScreenEffectControl controller);
+    void AddPaletteEffect(ScreenEffectPalette palette);
+    void AddPaletteEffect(ScreenEffectPaletteDef *palette);
+    float GetIntensity(ScreenEffectType type);
+    float GetDATA(ScreenEffectType type, int index);
+    void SetDATA(ScreenEffectType type, float data, int index);
+
+    void SetController(ScreenEffectType type, ScreenEffectControl SEC) {
+        SE_inf[type].Controller = SEC;
+    }
 
     void SetMyView(eView *view) {
         MyView = view;
@@ -285,13 +205,13 @@ struct ePoly {
 
     void operator delete(void *ptr) {}
 
-    void SetFlags(unsigned char i) { flags = i; }
+    void SetFlags(unsigned char i) {}
 
-    void SetFlailer(unsigned char i) { Flailer = i; }
+    void SetFlailer(unsigned char i) {}
 
-    unsigned char GetFlags() { return flags; }
+    unsigned char GetFlags() {}
 
-    unsigned char GetFlailer() { return Flailer; }
+    unsigned char GetFlailer() {}
 };
 
 struct OnScreenRain {
@@ -387,15 +307,15 @@ struct Rain {
     Rain(eView *view, RainType StartType);
     void Init(RainType type, float percent);
 
-    float GetRainIntensity() {}
+    float GetRainIntensity();
 
-    float GetCloudIntensity() {
-        return this->CloudIntensity;
+    float GetCloudIntensity();
+
+    float GetRoadDampness() {
+        return RoadDampness;
     }
 
-    float GetRoadDampness() {}
-
-    void GetPrecipFogColour(unsigned int *r, unsigned int *g, unsigned int *b) {}
+    void GetPrecipFogColour(unsigned int *r, unsigned int *g, unsigned int *b);
 
     void SetPrecipFogColour(unsigned int r, unsigned int g, unsigned int b) {}
 
@@ -404,6 +324,21 @@ struct Rain {
     void SetRoadDampness(float damp) {}
 
     bVector3 *GetWind() {}
+
+    void AttachRainCurtain(
+        float x0,
+        float y0,
+        float z0,
+        float x1,
+        float y1,
+        float z1,
+        float x2,
+        float y2,
+        float z2,
+        float x3,
+        float y3,
+        float z3
+    );
 };
 
 struct FacePixelation {
@@ -457,6 +392,36 @@ struct LoadedTable {
     }
 };
 
+struct eSolidPlatInfo {
+    // total size: 0x24
+    unsigned short Version;              // offset 0x0, size 0x2
+    unsigned short StripFlags;           // offset 0x2, size 0x2
+    unsigned short NumStrips;            // offset 0x4, size 0x2
+    unsigned short NumIdxClrTable;       // offset 0x6, size 0x2
+    unsigned int SizeofStripData;        // offset 0x8, size 0x4
+    unsigned int DataOffset0;            // offset 0xC, size 0x4
+    unsigned int DataOffset1;            // offset 0x10, size 0x4
+    unsigned int DataOffset2;            // offset 0x14, size 0x4
+    unsigned int DataOffset3;            // offset 0x18, size 0x4
+    struct eStripEntry *StripEntryTable; // offset 0x1C, size 0x4
+    unsigned char *StripDataStart;       // offset 0x20, size 0x4
+};
+
+class eSolidPlatInterface {
+    // total size: 0x4
+    eSolidPlatInfo *PlatInfo; // offset 0x0, size 0x4
+
+  public:
+    int UnloaderPlatChunks(bChunk *chunk);
+    int FixPlatInfo();
+    int UnFixPlatInfo();
+    void SetSmoothVertex(unsigned int vertex_offset, float nx, float ny, float nz);
+
+    eSolidPlatInfo *GetPlatInfo() {
+        return this->PlatInfo;
+    }
+};
+
 struct eReplacementTextureTable {
     // total size: 0xC
     unsigned int hOldNameHash; // offset 0x0, size 0x4
@@ -485,9 +450,8 @@ struct eReplacementTextureTable {
     }
 
     void SetNewNameHash(unsigned int name_hash) {
-        if (name_hash == this->hNewNameHash)
-            return;
-
+        if (name_hash == this->hNewNameHash) return;
+        
         hNewNameHash = name_hash;
         pTextureInfo = (TextureInfo *)-1;
     }
@@ -503,10 +467,6 @@ struct eReplacementTextureTable {
     }
 };
 
-void eInitModels();
-void NotifySolidLoader(eSolidListHeader *solid_list_header);
-void NotifySolidUnloader(eSolid *solid);
-
 void eFixupReplacementTexturesAfterUnloading(TextureInfo *texture_info);
 void eNotifyTextureLoading(TexturePack *texture_pack, TextureInfo *texture_info, bool loading);
 TextureInfo *eGetRenderTargetTextureInfo(int name_hash);
@@ -515,24 +475,20 @@ int eLoadSolidListPlatChunks(bChunk *chunk);
 float GetSunIntensity(eView *view);
 int eInitEngine();
 void eFixUpTables();
-bool eIsWidescreen();
-int eLoadStreamingSolidPack(const char *filename, void (*callback_function)(void *), void *callback_param, int memory_pool_num);
-void eWaitForStreamingSolidPackLoading(const char *filename);
 
-void eInitSolids();
-void eSolidNotifyTextureLoading(TexturePack *texture_pack, TextureInfo *texture_info, bool loading);
-eSolid *eFindSolid(unsigned int name_hash, eSolidListHeader *solid_list_header);
-int eSmoothNormals(eSolid **solid_table, int num_solids);
-
-extern eLoadedSolidStats LoadedSolidStats;
 extern unsigned int eFrameCounter;
+extern int WaitUntilRenderingDoneDisabled;
 
 inline unsigned int eGetFrameCounter() {
     return eFrameCounter;
 }
 
-inline int eLoadStreamingSolidPack(const char *filename) {
-    return eLoadStreamingSolidPack(filename, nullptr, nullptr, 0);
+inline void DisableWaitUntilRenderingDone() {
+    WaitUntilRenderingDoneDisabled = 1;
+}
+
+inline void EnableWaitUntilRenderingDone() {
+    WaitUntilRenderingDoneDisabled = 0;
 }
 
 #endif

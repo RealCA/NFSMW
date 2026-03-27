@@ -9,8 +9,6 @@
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
 #include "Speed/Indep/bWare/Inc/bWare.hpp"
 
-class eModel;
-
 enum EVIEW_ID {
     NUM_RVM_VIEWS = 1,
     NUM_PLAYER_VIEWS = 3,
@@ -197,6 +195,9 @@ struct ePositionMarker {
     void EndianSwap() {}
 };
 
+struct eModel;
+struct eLightContext;
+
 class eViewPlatInfo;
 
 // total size: 0x4
@@ -214,7 +215,7 @@ class eViewPlatInterface {
     static eViewPlatInfo *GimmeMyViewPlatInfo(int view_id);
     eVisibleState GetVisibleStateGB(const bVector3 *aabb_min, const bVector3 *aabb_max, bMatrix4 *local_world);
     eVisibleState GetVisibleStateSB(const bVector3 *aabb_min, const bVector3 *aabb_max, bMatrix4 *local_world);
-    void Render(eModel *model, bMatrix4 *local_to_world, struct eLightContext *light_context, unsigned int flags, bMatrix4 *blending_matricies);
+    void Render(eModel *model, bMatrix4 *matrix, eLightContext *light_context, unsigned int flags, bMatrix4 *local_world);
 };
 
 #endif

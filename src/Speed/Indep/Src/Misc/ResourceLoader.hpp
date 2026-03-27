@@ -152,6 +152,7 @@ ResourceFile *LoadResourceFile(const char *filename, ResourceFileType type, int 
                                void (*callback)(void *), void *callback_param,
                                int file_offset, int file_size);
 void UnloadResourceFile(ResourceFile *resource_file);
+void SetDelayedResourceCallback(void (*callback)(void *), void *param);
 
 inline ResourceFile *LoadResourceFile(const char *filename, ResourceFileType type, int flags) {
     return LoadResourceFile(filename, type, flags, nullptr, nullptr, 0, 0);
@@ -165,6 +166,10 @@ inline bool AreChunksBeingMoved() {
 
 inline int GetChunkMovementOffset() {
     return ChunkMovementOffset;
+}
+
+inline void SetDelayedResourceCallback(void (*callback)(int), int param) {
+    SetDelayedResourceCallback(reinterpret_cast<void (*)(void *)>(callback), reinterpret_cast<void *>(param));
 }
 
 #endif

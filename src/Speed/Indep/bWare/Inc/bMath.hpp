@@ -46,11 +46,7 @@ inline float bTan(unsigned short angle) {
 inline float bSqrt(float x) {
     const float bSqrtEPS = 5e-11f;
 
-    float y0
-#ifdef _MSC_VER
-        = 0.0f
-#endif
-        ;
+    float y0;
     float y1;
     float t0;
     float t1;
@@ -203,7 +199,7 @@ inline float bDegToRad(float degrees) {
 }
 
 inline float bAngToDeg(unsigned short angle) {
-    return static_cast<unsigned int>(angle) * (360.0f / 65536.0f);
+    return static_cast<unsigned int>(angle) * (65536.0f / 360.0f);
 }
 
 inline float bCos(float angle) {
@@ -266,16 +262,15 @@ inline bVector2 *bFill(bVector2 *dest, float x, float y) {
     return dest;
 }
 
-inline bVector2 *bSub(bVector2 *dest, const bVector2 *v1, const bVector2 *v2) {
-    float x1 = v1->x;
-    float y1 = v1->y;
-    float x2 = v2->x;
-    float y2 = v2->y;
-    return bFill(dest, x1 - x2, y1 - y2);
+inline bVector2 *bCopy(bVector2 *dest, const bVector2 *v) {
+    float x = v->x;
+    float y = v->y;
+    bFill(dest, x, y);
+    return dest;
 }
 
-inline bVector2 &bVector2::operator-=(const bVector2 &v) {
-    bSub(this, this, &v);
+inline bVector2 &bVector2::operator=(const bVector2 &v) {
+    bCopy(this, &v);
     return *this;
 }
 
@@ -303,32 +298,19 @@ inline bVector2 bVector2::operator-(const bVector2 &v) const {
     return bVector2(_x, _y);
 }
 
-inline bVector2 *bCopy(bVector2 *dest, const bVector2 *v) {
+inline bVector2 *bScale(bVector2 *dest, const bVector2 *v, float scale) {
     float x = v->x;
     float y = v->y;
-    return bFill(dest, x, y);
-}
 
-inline bVector2 &bVector2::operator=(const bVector2 &v) {
-    bCopy(this, &v);
-    return *this;
-}
-
-inline bVector2 *bScale(bVector2 *dest, const bVector2 *v, float scale) {
-    float x = v->x * scale;
-    float y = v->y * scale;
-    return bFill(dest, x, y);
+    dest->x = x * scale;
+    dest->y = y * scale;
+    return dest;
 }
 
 inline bVector2 bScale(const bVector2 &v, float scale) {
     bVector2 dest;
     bScale(&dest, &v, scale);
     return dest;
-}
-
-inline bVector2 &bVector2::operator*=(float scale) {
-    bScale(this, this, scale);
-    return *this;
 }
 
 inline bVector2 bVector2::operator*(float f) const {
@@ -339,6 +321,10 @@ inline float bLength(const bVector2 *v) {
     float x = v->x;
     float y = v->y;
     return bSqrt(x * x + y * y);
+}
+
+inline float bLength(const bVector2 &v) {
+    return bLength(&v);
 }
 
 inline bVector2 bNormalize(const bVector2 &v) {
@@ -605,20 +591,18 @@ struct bVector4 {
 
     bVector4 operator+(const bVector4 &v) {
         bVector4 *pv;
-        float x1 = x;
-        float y1 = y;
-        float z1 = z;
-        float w1 = w;
-        float x2 = v.x;
-        float y2 = v.y;
-        float z2 = v.z;
-        float w2 = v.w;
-        float _x = x1 + x2;
-        float _y = y1 + y2;
-        float _z = z1 + z2;
-        float _w = w1 + w2;
-
-        return bVector4(_x, _y, _z, _w);
+        float x1;
+        float y1;
+        float z1;
+        float w1;
+        float x2;
+        float y2;
+        float z2;
+        float w2;
+        float _x;
+        float _y;
+        float _z;
+        float _w;
     }
 
     bVector4 operator-() {
@@ -967,23 +951,30 @@ struct bQuaternion {
         this->w = _w;
     }
 
-    void GetMatrix(bMatrix4 &mat) const;
-    inline void GetMatrix(bMatrix4 *mat) const { GetMatrix(*mat); }
-
     bQuaternion &Slerp(bQuaternion &r, const bQuaternion &target, float t) const;
 };
 
 class bBitTable {
   public:
-    // bBitTable() {}
+    bBitTable() {
+        Bits = 0;
+        NumBits = 0;
+    }
 
-    // bBitTable(void *mem, int num_bits) {}
+    bBitTable(void *mem, int num_bits) {
+        Init(mem, num_bits);
+    }
 
-    // void Init(void *mem, int num_bits) {}
+    void Init(void *mem, int num_bits) {
+        Bits = reinterpret_cast<uint8 *>(mem);
+        NumBits = num_bits;
+    }
 
-    // void ClearTable() {}
+    void ClearTable();
 
-    // void Set(int bit) {}
+    void Set(int bit) {
+        Bits[bit >> 3] |= static_cast<uint8>(1 << (bit & 7));
+    }
 
     // void Clear(int bit) {}
 

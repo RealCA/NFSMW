@@ -5,7 +5,9 @@
 #pragma once
 #endif
 
+#include "Speed/Indep/bWare/Inc/bChunk.hpp"
 #include "Speed/Indep/bWare/Inc/bMath.hpp"
+#include "Speed/Indep/bWare/Inc/bWare.hpp"
 
 enum eTrackPathZoneType {
     NUM_TRACK_PATH_ZONES = 15,
@@ -24,6 +26,22 @@ enum eTrackPathZoneType {
     TRACK_PATH_ZONE_GUIDED_RESET = 2,
     TRACK_PATH_ZONE_RESET_TO_POINT = 1,
     TRACK_PATH_ZONE_RESET = 0,
+};
+
+// total size: 0x18
+struct TrackPathBarrier {
+    bVector2 Points[2];    // offset 0x0, size 0x10
+    char Enabled;          // offset 0x10, size 0x1
+    char Pad;              // offset 0x11, size 0x1
+    char PlayerBarrier;    // offset 0x12, size 0x1
+    char LeftHanded;       // offset 0x13, size 0x1
+    unsigned int GroupHash; // offset 0x14, size 0x4
+
+    void EndianSwap() {
+        bPlatEndianSwap(&Points[0]);
+        bPlatEndianSwap(&Points[1]);
+        bPlatEndianSwap(&GroupHash);
+    }
 };
 
 // total size: 0x244
@@ -48,31 +66,29 @@ class TrackPathZone {
     void GetOpposite(bVector2 *in0, bVector2 *in1, bVector2 *opp0, bVector2 *opp1);
     bool GetIntercept(bVector2 &InterceptPoint, const bVector2 *Start, const bVector2 *Direction);
     bool IsPointInside(const bVector2 *point);
-
-    int GetData(int index) {
-        return Data[index];
-    }
-
+    float GetSegmentNextTo(bVector2 *point, bVector2 *segment_point_a, bVector2 *segment_point_b);
     float GetElevation() {
         return Elevation;
     }
-};
 
+    eTrackPathZoneType GetType() {
+        return Type;
+    }
 
-bool DoLinesIntersect(const bVector2 &a, const bVector2 &b, const bVector2 &c, const bVector2 &d);
+    int GetMemoryImageSize() {
+        return MemoryImageSize;
+    }
 
-struct TrackPathBarrier {
-    bVector2 Points[2];     // offset 0x0, size 0x10
-    char Enabled;           // offset 0x10, size 0x1
-    char Pad;               // offset 0x11, size 0x1
-    char PlayerBarrier;     // offset 0x12, size 0x1
-    char LeftHanded;        // offset 0x13, size 0x1
-    unsigned int GroupHash; // offset 0x14, size 0x4
+    void SetVisitInfo(int v) {
+        VisitInfo = v;
+    }
 
-    bool IsEnabled() { return Enabled != 0; }
-    bool IsPlayerBarrier() { return PlayerBarrier != 0; }
-    bool Intersects(bVector2 *pointa, bVector2 *pointb) {
-        return DoLinesIntersect(Points[0], Points[1], *pointa, *pointb);
+    TrackPathZone *GetMemoryImageNext() {
+        return reinterpret_cast<TrackPathZone *>(reinterpret_cast<char *>(this) + GetMemoryImageSize());
+    }
+
+    int GetData(int index) {
+        return Data[index];
     }
 };
 
@@ -86,8 +102,8 @@ class TrackPathManager {
         bVector2 CachedBBoxMax;
         int NumCachedZones;
         int NumCacheHits;
-        int NumCacheRebuilds;
         int NumFullRebuilds;
+        int NumCacheRebuilds;
         TrackPathZone *CachedZones[8];
     };
 
@@ -98,19 +114,30 @@ class TrackPathManager {
     ZoneInfo ZoneInfoTable[15];         // offset 0xC, size 0x474
     int MostCachedZones;                // offset 0x480, size 0x4
     int NumBarriers;                    // offset 0x484, size 0x4
-    struct TrackPathBarrier *pBarriers; // offset 0x488, size 0x4
+    TrackPathBarrier *pBarriers; // offset 0x488, size 0x4
 
   public:
-    int GetNumBarriers() const { return NumBarriers; }
-    TrackPathBarrier *GetBarrier(int index) { return &pBarriers[index]; }
+    TrackPathManager() {
+        Clear();
+    }
+
+    void Clear();
+    int Loader(bChunk *chunk);
+    int Unloader(bChunk *chunk);
+    void DisableAllBarriers();
     void EnableBarriers(const char *group_name);
     void BuildZoneInfoTable();
     TrackPathZone *FindZone(const bVector2 *position, eTrackPathZoneType zone_type, TrackPathZone *prev_zone);
     void ResetZoneVisitInfos();
+    TrackPathZone *GetLastZone() {
+        return reinterpret_cast<TrackPathZone *>(reinterpret_cast<char *>(pZones) + SizeofZones);
+    }
 };
 
 extern TrackPathManager TheTrackPathManager;
 
 void TrackPathInitRemoteCaffeineConnection();
+int LoaderTrackPath(bChunk *chunk);
+int UnloaderTrackPath(bChunk *chunk);
 
 #endif

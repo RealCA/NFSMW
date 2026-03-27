@@ -19,6 +19,15 @@ In this repo, style cleanup must preserve decomp progress.
 - If a style tweak changes codegen or match status, revert it.
 - Extend this skill only from patterns you actually verified in the repo.
 
+### Authenticity Over Hacks
+
+A 100% match is the goal, but **how** we get there matters just as much.
+
+- Do not use "any means necessary" to force a match if it results in unreadable or unnatural code.
+- Always think about what the original code probably looked like and write it that way.
+- Even if a function matches 100% binary-wise, it is not "correct" if the source is unreadable or contains logic that no human developer would have written.
+- If you find a stubborn mismatch, look for a more natural C++ expression or a different architectural pattern instead of resorting to opaque hacks.
+
 ## Quick Tooling
 
 Use the repo-local helper before doing a style pass:
@@ -31,6 +40,8 @@ python tools/code_style.py audit --base origin/main
 - `audit` also checks touched `class` / `struct` declarations against known header declarations and, when no header exists, against the PS2 visibility rule.
 - `audit` warns on touched local forward declarations when the repo already has a header for that type.
 - `audit` warns on touched type members that look like invented padding or placeholder names such as `pad`, `unk`, or `field_1234`.
+- `audit` prefers real header definitions over conflicting forward declarations when resolving `class` / `struct` kind, so owner headers beat stray forward-decl noise.
+- `audit` suppresses placeholder-member warnings when Dwarf / PS2 already proves that names such as `pad`, `pad0`, or `pad1` are genuine recovered members.
 - `audit` also checks touched style-guide rules that clang-format cannot enforce for you, such as cast spacing, `using namespace`, `NULL`, bare `#if MACRO` presence checks, recovered layout members that still use raw `unsigned char` / `unsigned short`, and missing or misordered `EA_PRAGMA_ONCE_SUPPORTED` guard blocks when a header's prologue is touched.
 - `audit` groups repeated findings by file so branch-wide output stays readable.
 - Use `audit --category safe-cpp` when you want a smaller Frontend/FEng-focused subset and `audit --category match-sensitive-cpp` when you want a conservative review queue for decomp code.
@@ -108,6 +119,9 @@ Foo::Foo()
 
 - Prefer including the owning repo header over adding a local forward declaration for a project type.
 - If the repo already has a header declaration/definition for a type, include that header instead of redeclaring the type locally.
+- Treat `audit` include-owner warnings as advisory when the suggested header would create a circular include or would drag a heavy owner header into another recovered owner just to replace a harmless pointer/reference forward declaration.
+- In those cycle-prone cases, keep the forward declaration, but still fix the declaration kind (`class` vs `struct`) when you have verified it from the repo or PS2 dump.
+- If the repo already has the real type declaration, prefer that repo declaration's `class` / `struct` kind over a fallback audit heuristic when they disagree.
 - If the repo only has an empty or stub owner header, and line info / surrounding source clearly points at that header's subsystem, prefer populating that owner header over leaving a recovered project type declaration inside a `.cpp`.
 - Only keep a local forward declaration when no canonical repo header exists yet and you have verified that the ownership is still unresolved.
 - Likewise for project free functions: if a declaration is shared across translation units, move it into the owning header instead of leaving ad-hoc local prototypes in `.cpp` files.
@@ -122,9 +136,6 @@ Foo::Foo()
 
 - Use the repo's header guard form when writing headers: `#ifndef` / `#define` plus the `#ifdef EA_PRAGMA_ONCE_SUPPORTED` / `#pragma once` block.
 - Keep member layout comments aligned and intact in decomp headers.
-- In match-sensitive headers, do not add class/member placement-`new` or unsized `operator delete` overloads just because the implementation uses placement new or delete expressions. Prefer the platform/global overloads that the original headers already pulled in unless DWARF proves the type exposed a custom overload.
-- If a delete-path DWARF diff keeps collapsing to an empty unsized `operator delete()` helper, check whether the touched type still has a stray unsized `operator delete(void *)` overload. In `zAttribSys`, removing the extra unsized `HashMap::operator delete(void *)` restored the original-sized delete path and made multiple matched functions exact.
-- When writing a recovered layout, start from a pasted GC DWARF dump instead of hand-reconstructing a cleaner version. Treat the dump as source-of-truth data entry, then make only small verified fixes from PS2 or existing headers.
 - Preserve the original `class` / `struct` kind from existing headers or Dwarf / PS2 evidence; do not treat it as a cosmetic style choice.
 - Treat header declarations as the repo source of truth. If the repo only has local `.cpp` partial declarations, verify the kind with the PS2 dump instead of copying them blindly.
 - Even forward declarations and local partial declarations should use the accurate keyword when known.
@@ -132,12 +143,11 @@ Foo::Foo()
 - When a recovered type is a `class`, keep explicit access sections and put the method/accessor block before the member layout block unless existing repo evidence shows otherwise.
 - Preserve the member naming style that DWARF shows. Some types use `mMember`, others use `m_member`; do not normalize them.
 - Preserve recovered member names, types, order, and offset comments. Do not invent placeholder members named `pad`, `unk`, `unknown`, or `field_XXXX` for game code just to make a layout compile.
-- Preserve the dumped declaration order too. Do not regroup methods, helpers, enums, or fields for readability unless an existing repo header or PS2 evidence proves the original order differs.
+- If Dwarf / PS2 already proves that a real member is literally named `pad`, `pad0`, `pad1`, etc., keep that verified name; only treat pad-like names as suspect when they were invented locally.
 - If a member is genuinely unknown, stop and verify it with `find-symbol.py`, GC Dwarf, and PS2 data. If the layout is still incomplete, add a short TODO above the type instead of burying uncertainty in fake member names.
 - Add offset / size comments when you are writing recovered type layouts from DWARF.
 - In recovered layouts, prefer explicit-width aliases such as `uint8` / `uint16` when the field width is known. Use plain `char` for text / byte buffers and `signed char` when the field is a signed 8-bit counter.
 - Define inline member functions in headers only when DWARF shows that they are genuinely inlined in the binary.
-- In touched shared inlines/templates, preserve recovered parameter names too. In `zAttribSys`, changing `HashMapTablePolicy::WrapIndex` from `k` back to DWARF's `index` cleared several matched-function DWARF mismatches without changing codegen.
 - Use `struct` for POD-like data carriers with public fields; use `class` for behavior-heavy types only when that matches the recovered type information.
 - Keep tiny placeholder methods as concise inline bodies when that is already the local pattern.
 
@@ -151,7 +161,6 @@ Foo::Foo()
 
 - Expand dense one-line helper structs, declaration blocks, and function bodies in non-match-sensitive files into normal multiline formatting.
 - In low-level headers, prefer normal multi-line bodies for touched inline operators and accessors instead of stacking `{ return ...; }` on one line, unless the surrounding file clearly uses intentional placeholder one-liners.
-- In match-sensitive `.cpp` files, do not slide a restored tiny out-of-line special member above the file's first real top-level function just for tidiness. On `zAttribSys`, moving `CollectionHashMap::~CollectionHashMap()` above `Class::Class` was enough to rename a `global constructors keyed to ...` helper and drop the TU until the original first-function order was restored.
 - Prefer readable blocks over stacked one-line statements when behavior does not depend on exact source shape.
 - In touched validation/parsing code, prefer explicit min/max or boundary checks over equivalent magic-constant arithmetic when the clearer form still compiles to the verified result.
 - In parser/state-table code, prefer named enums and enum-typed state variables over anonymous integer state codes when that rewrite is verified safe.
@@ -196,6 +205,12 @@ python tools/decomp-workflow.py build -u main/Path/To/OtherTU
 
 Keep the cleanup only if the build succeeds and the relevant match status is unchanged.
 
+If the current branch makes `ninja` / `configure.py` restart repeatedly, validate the
+affected TU with the raw `rule prodg` command from `build.ninja` instead of waiting on
+the generator. Compile the TU directly, run `tools/transform_dep.py` on the emitted
+depfile, and then check the affected function/unit with `decomp-workflow.py diff` or
+`decomp-status.py`.
+
 ## Branch Patterns Confirmed So Far
 
 - Blank-line spacing in jumbo source-list include blocks is intentional and worth preserving.
@@ -206,7 +221,6 @@ Keep the cleanup only if the build succeeds and the relevant match status is unc
 - Header prologues should keep the `EA_PRAGMA_ONCE_SUPPORTED` block ahead of includes, not after them.
 - Bare `#if MACRO` presence checks are review bait; use `#ifdef` / `#ifndef` unless you are intentionally testing a numeric config value.
 - Reviewed recovered headers tend to keep total-size comments above the type, methods before fields, explicit access sections, and fixed-width aliases for width-known narrow integer members.
-- Recent `zMisc` review cleanup also showed that hand-reconstructed structs and reordered declarations create avoidable churn; copy recovered layouts from DWARF into the owner header first and keep the dumped order unless PS2/header evidence proves a correction.
 - Reviewed fixups also remove stale bare recovery markers or replace them with context, and prefer existing list/node helpers over hand-written pointer/link rewiring.
 - Some reviewed fixups improved readability without losing match by replacing opaque range-check arithmetic with explicit bounds and by moving repeated pointer/boundary math behind short named helpers.
 - Other recurring review churn came from plain-`int` address helpers, stray local `.cpp` prototypes for shared functions, and integer-coded parser states where named enums were clearer but still matched.

@@ -24,6 +24,14 @@ struct DiscBundleSectionMember {
 };
 
 struct DiscBundleSection {
+    int GetMemoryImageSize() {
+        return NumMembers * sizeof(DiscBundleSectionMember) + 0x14;
+    }
+
+    DiscBundleSection *GetMemoryImageNext() {
+        return reinterpret_cast<DiscBundleSection *>(reinterpret_cast<char *>(this) + GetMemoryImageSize());
+    }
+
     // total size: 0x114
     int FileOffset;                      // offset 0x0, size 0x4
     int FileSize;                        // offset 0x4, size 0x4
@@ -98,12 +106,59 @@ class TSMemoryNode : public bTNode<TSMemoryNode> {
     int Size;           // offset 0xC, size 0x4
     bool Allocated;     // offset 0x10, size 0x1
     char DebugName[32]; // offset 0x14, size 0x20
+
+    bool IsAllocated();
+
+    bool IsFree();
+
+    bool Contains(int address);
+
+    int GetAddress(bool start_from_top, int size) {
+        if (start_from_top) {
+            return Address;
+        }
+        return Address + Size - size;
+    }
 };
 
 // total size: 0x2754
 class TSMemoryPool {
   public:
+    TSMemoryPool(int address, int size, const char *debug_name, int pool_num);
+    void *Malloc(int size, const char *debug_name, bool best_fit, bool allocate_from_top, int address);
+    void Free(void *memory);
+    int GetAmountFree();
+    int GetLargestFreeBlock();
+    TSMemoryNode *GetNextNode(bool start_from_top, TSMemoryNode *node = 0);
+    TSMemoryNode *GetFirstNode(bool start_from_top) {
+        return GetNextNode(start_from_top, 0);
+    }
+    TSMemoryNode *GetNextFreeNode(bool start_from_top, TSMemoryNode *node = 0);
+    TSMemoryNode *GetFirstFreeNode(bool start_from_top) {
+        return GetNextFreeNode(start_from_top, 0);
+    }
+    TSMemoryNode *GetNextAllocatedNode(bool start_from_top, TSMemoryNode *node = 0);
+    TSMemoryNode *GetFirstAllocatedNode(bool start_from_top);
+    bool IsUpdated() {
+        bool updated = Updated;
+        Updated = false;
+        return updated;
+    }
+    unsigned int GetPoolChecksum();
+    void EnableTracing(bool enabled) {
+        TracingEnabled = enabled;
+    }
+    void DebugPrint();
+
   private:
+    static void *OverrideMalloc(void *pool, int size, const char *debug_text, int debug_line, int allocation_params);
+    static void OverrideFree(void *pool, void *ptr);
+    static int OverrideGetAmountFree(void *pool);
+    static int OverrideGetLargestFreeBlock(void *pool);
+
+    TSMemoryNode *GetNewNode(int address, int size, bool allocated, const char *debug_name);
+    void RemoveNode(TSMemoryNode *node);
+
     int PoolNum;                         // offset 0x0, size 0x4
     const char *DebugName;               // offset 0x4, size 0x4
     int TotalSize;                       // offset 0x8, size 0x4
@@ -127,14 +182,23 @@ struct TrackStreamingInfo {
 struct TrackStreamingBarrier {
     // void EndianSwap() {}
 
-    // bool Intersects(const bVector2 *pointa, const bVector2 *pointb) {}
+    bool Intersects(const bVector2 *pointa, const bVector2 *pointb);
 
     bVector2 Points[2]; // offset 0x0, size 0x10
+};
+
+struct HoleMovement {
+    // total size: 0x10
+    int Address;            // offset 0x0, size 0x4
+    int NewAddress;         // offset 0x4, size 0x4
+    int Size;               // offset 0x8, size 0x4
+    unsigned int Checksum;  // offset 0xC, size 0x4
 };
 
 // total size: 0x888
 class TrackStreamer {
   public:
+    TrackStreamer();
     enum eLoadingPhase {
         LOADING_IDLE = 0,
         ALLOCATING_TEXTURE_SECTIONS = 1,
@@ -146,196 +210,92 @@ class TrackStreamer {
         NUM_LOADING_PHASES = 7,
     };
 
-    int Loader(bChunk *chunk);
-
-    int Unloader(bChunk *chunk);
-
-    void ClearCurrentZones();
-
-    void InitMemoryPool(int size);
-
-    void CloseMemoryPool();
-
+    void ServiceGameState();
+    void ServiceNonGameState();
     int GetMemoryPoolSize();
-
-    int CountUserAllocations(const char **pfragmented_user_allocation);
-
-    void AddKeepSection(int section_number);
-
-    void RemoveKeepSection(int section_number);
-
-    TrackStreamingSection *FindSection(int section_number);
-
-    TrackStreamingSection *FindSectionByAddress(int address);
-
-    int GetCombinedSectionNumber(int section_number);
-
-    void InitRegion(const char *region_stream_filename, bool split_screen);
-
-    void StartPermFileLoading(const char *filename);
-
-    void PermFileLoadedCallback();
-
-    void HibernateStreamingSections();
-
-    void FlushHibernatingSections();
-
-    void *AllocateMemory(TrackStreamingSection *section, int allocation_params);
-
-    void LoadDiscBundle(DiscBundleSection *disc_bundle);
-
-    static void DiscBundleLoadedCallback(int param, int error_status);
-
-    void DiscBundleLoadedCallback(DiscBundleSection *disc_bundle);
-
-    void LoadSection(TrackStreamingSection *section);
-
-    void ActivateSection(TrackStreamingSection *section);
-
-    void UnactivateSection(TrackStreamingSection *section);
-
-    bool WillUnloadBlock(TrackStreamingSection *section);
-
-    void UnloadSection(TrackStreamingSection *section);
-
-    bool NeedsGameStateActivation(TrackStreamingSection *section);
-
-    static void SectionLoadedCallback(int param, int error_status);
-
-    void SectionLoadedCallback(TrackStreamingSection *section);
-
-    void EmptyCaffeineLayers();
-
-    static char *GetLoadingPhaseName(enum eLoadingPhase phase);
-
-    void SetLoadingPhase(enum eLoadingPhase phase);
-
-    const char *GetPrintHeader();
-
-    int UnloadLeastRecentlyUsedSection();
-
-    void JettisonSection(TrackStreamingSection *section);
-
-    bool JettisonLeastImportantSection();
-
-    TrackStreamingSection *ChooseSectionToJettison();
-
-    void UnJettisonSections();
-
-    int BuildHoleMovements(struct HoleMovement *hole_movements, int max_movements, int filler_method, int largest_free, int *pamount_moved,
-                           int max_amount_to_move);
-
-    int DoHoleFilling(int largest_free);
-
+    int CountUserAllocations(const char **pdebug_name);
     void SetStreamingPosition(int position_number, const bVector3 *position);
-
-    void SetStreamingPosition(int position_number, const bVector2 *position);
-
-    void PredictStreamingPosition(int position_number, const bVector3 *position, const bVector3 *velocity, const bVector3 *direction,
-                                  bool following_car);
-
-    short GetPredictedZone(StreamingPositionEntry *position_entry);
-
+    void PredictStreamingPosition(int position_number, const bVector3 *position, const bVector3 *velocity,
+                                  const bVector3 *direction, bool following_car);
     void ClearStreamingPositions();
-<<<<<<< HEAD
-
-    void RemoveCurrentStreamingSections();
-
-    void AddCurrentStreamingSections(short *sections_to_load, int num_sections_to_load, int position_number);
-
-    void DetermineStreamingSections();
-
-    int AllocateSectionMemory(int *ptotal_needing_allocation);
-
-    void FreeSectionMemory();
-
-    bool HandleMemoryAllocation();
-
-=======
     void BlockUntilLoadingComplete();
-    void MakeSpaceInPool(int size, bool force);
->>>>>>> clanker2
+    void WaitForCurrentLoadingToComplete();
     void *AllocateUserMemory(int size, const char *debug_name, int offset);
-
     void FreeUserMemory(void *mem);
     bool IsUserMemory(void *mem);
-    bool HasMemoryPool() {
-        return pMemoryPoolMem != nullptr;
-    }
-
-    bool IsUserMemory(void *mem);
-
-    bool MakeSpaceInPool(int size, bool force_unloading);
-
-    void MakeSpaceInPool(int size, void (*callback)(int), int param);
-
-    void ReadyToMakeSpaceInPool();
-
-    bool DetermineCurrentZones(short *current_zones);
-
-    void ServiceGameState();
-
-    void PrintMemoryPool();
-
-    void ServiceNonGameState();
-
-    void BlockUntilLoadingComplete();
-
-    void WaitForCurrentLoadingToComplete();
-
-    bool IsLoadingInProgress();
-
-    bool AreAllSectionsActivated();
-
-    void RefreshLoading();
-
-    void SetLoadingCallback(void (*callback)(int), int param);
-
-    void HandleZoneSwitching();
-
+    void *AllocateMemory(TrackStreamingSection *section, int allocation_params);
+    int AllocateSectionMemory(int *ptotal_needing_allocation);
+    TrackStreamingSection *FindSection(int section_number);
+    TrackStreamingSection *FindSectionByAddress(int address);
+    void RemoveCurrentStreamingSections();
+    void AddCurrentStreamingSections(short *section_numbers, int num_sections, int position_number);
+    void DetermineStreamingSections();
+    short GetPredictedZone(StreamingPositionEntry *streaming_position);
+    void PlotLoadingMarker(StreamingPositionEntry *streaming_position);
     void SwitchZones(short *current_zones);
-
-    void HandleLoading();
-
-    int GetLoadingPriority(TrackStreamingSection *section, StreamingPositionEntry *position_entry, bool calculating_jettison);
-
-    void AssignLoadingPriority();
-
-    void CalculateLoadingBacklog();
-
+    void UnactivateSection(TrackStreamingSection *section);
+    bool WillUnloadBlock(TrackStreamingSection *section);
+    void UnloadSection(TrackStreamingSection *section);
+    void FreeSectionMemory();
+    int UnloadLeastRecentlyUsedSection();
+    void JettisonSection(TrackStreamingSection *section);
+    bool JettisonLeastImportantSection();
+    void SetLoadingPhase(eLoadingPhase loading_phase);
+    void EmptyCaffeineLayers();
+    int Loader(bChunk *chunk);
+    int Unloader(bChunk *chunk);
+    void InitMemoryPool(int size);
+    void InitRegion(const char *region_stream_filename, bool split_screen);
     void StartLoadingSections();
-
+    bool HandleMemoryAllocation();
+    TrackStreamingSection *ChooseSectionToJettison();
     void FinishedLoading();
-
-    void PlotLoadingMarker(StreamingPositionEntry *position_entry);
-
-    bool CheckLoadingBar();
-
-    int GetSectionToActivate(int activation_delay);
-
+    void UnJettisonSections();
+    int BuildHoleMovements(HoleMovement *hole_movements, int max_movements, int filler_method, int largest_free,
+                           int *pamount_moved, int max_amount_to_move);
+    int DoHoleFilling(int largest_free);
+    bool NeedsGameStateActivation(TrackStreamingSection *section);
+    int GetSectionToActivate(int loaded_frames);
     void HandleSectionActivation();
-
+    void ActivateSection(TrackStreamingSection *section);
+    void HandleLoading();
     void UnloadEverything();
-
-    void ForceSectionToUnload(int section_number);
+    int GetLoadingPriority(TrackStreamingSection *section, StreamingPositionEntry *streaming_position, bool use_direction);
+    void AssignLoadingPriority();
+    void CalculateLoadingBacklog();
+    bool IsLoadingInProgress();
+    bool IsFarLoadingInProgress() {
+        return CurrentZoneFarLoad && IsLoadingInProgress();
+    }
+    bool AreAllSectionsActivated();
+    bool CheckLoadingBar();
+    void HibernateStreamingSections();
+    void FlushHibernatingSections();
+    bool MakeSpaceInPool(int size, bool force_unloading);
+    void MakeSpaceInPool(int size, void (*callback)(int), int param);
+    void ReadyToMakeSpaceInPool();
+    void RefreshLoading();
 
     void DisableZoneSwitching() {
         ZoneSwitchingDisabled = true;
-    }
-
-    void EnableZoneSwitching() {
-        ZoneSwitchingDisabled = false;
     }
 
     int IsSectionVisible(int section_number) {
         return CurrentVisibleSectionTable.IsSet(section_number);
     }
 
-    bool IsPermFileLoading() {
-        return PermFileLoading;
-    }
-
   private:
+    void ClearCurrentZones();
+    bool DetermineCurrentZones(short *current_zones);
+    void HandleZoneSwitching();
+    int GetCombinedSectionNumber(int section_number);
+    static void DiscBundleLoadedCallback(int param, int error_status);
+    static void ReadyToMakeSpaceInPoolBridge(int param);
+    void DiscBundleLoadedCallback(DiscBundleSection *disc_bundle);
+    void LoadDiscBundle(DiscBundleSection *disc_bundle);
+    void LoadSection(TrackStreamingSection *section);
+    static void SectionLoadedCallback(int param, int error_status);
+    void SectionLoadedCallback(TrackStreamingSection *section);
     TrackStreamingSection *pTrackStreamingSections;       // offset 0x0, size 0x4
     int NumTrackStreamingSections;                        // offset 0x4, size 0x4
     DiscBundleSection *pDiscBundleSections;               // offset 0x8, size 0x4
@@ -388,12 +348,6 @@ class TrackStreamer {
     void (*MakeSpaceInPoolCallback)(int);                 // offset 0x87C, size 0x4
     int MakeSpaceInPoolCallbackParam;                     // offset 0x880, size 0x4
     int MakeSpaceInPoolSize;                              // offset 0x884, size 0x4
-
-  public:
-    void MakeSpaceInPool(int size, void (*callback)(int), int param);
-    bool MakeSpaceInPool(int size, bool force_unloading);
-    void WaitForCurrentLoadingToComplete();
-    void RefreshLoading();
 };
 
 extern TrackStreamer TheTrackStreamer;
