@@ -2,7 +2,12 @@
 
 Matching decompilation of Need for Speed Most Wanted 2005 (GameCube) targeting the USA Release build (`GOWE69`).
 The goal is to produce C++ source that compiles to byte-identical and dwarf-identical object code against the
+<<<<<<< HEAD
 original retail binary using the ProDG GC 3.9.3 compiler, which is GCC 2.95-based under the hood.
+=======
+original retail binary using the ProDG GC 3.9.3 compiler. You're completely autonomous, don't stop until you have tried
+every single function for a long time. Do 5 functions in parallel using subagents.
+>>>>>>> clanker2
 
 ## Build & Verify
 
@@ -403,6 +408,7 @@ Demangle a symbol (you probably won't need this):
 dtk demangle 'AcceptScriptMsg__7CEntityF20EScriptObjectMessage9TUniqueIdR13CStateManager'
 ```
 
+<<<<<<< HEAD
 ### share_worktree_assets.py — Share stable assets across git worktrees
 
 Deduplicate immutable debug inputs and downloaded tool binaries across all git
@@ -417,6 +423,9 @@ This shares extracted `orig/*` contents, `symbols/*`, root ELF / MAP files, and
 downloaded tool binaries under `build/`. It does **not** share `build.ninja`,
 `objdiff.json`, `compile_commands.json`, or per-worktree object outputs, so run
 `python configure.py` inside each worktree after linking.
+=======
+DON'T EVER USE OBJDUMP or very low level tools.
+>>>>>>> clanker2
 
 ## Code Conventions
 
@@ -539,6 +548,21 @@ On PowerPC EABI (as used by GCC), float and integer parameters use **separate** 
 files: floats fill f1–f8 sequentially, integers fill r3–r10 sequentially, independently of
 each other. This means inserting/removing a `float` parameter shifts all subsequent float
 register assignments but does NOT affect integer register assignments (and vice versa).
+
+### Store instruction order hints
+
+- GCC likes to reorder store instructions, so try multiple combinations instead of strictly
+  using the order from the assembly. When there are lots of store instructions after each other,
+  the first one of the source code often ends up being the last in the assembly.
+- The developers usually initialized members using initializer lists. This is great because the order
+  of stores becomes deterministic that way. However if you put all possible variables into the initializer list
+  and the order is wrong, you might have to initialize some or all variables in the function body instead. 
+
+### Relocation diffs
+- When you have to use a constant that looks like an address, it's possible that the splitter thought it was
+  an allocation and it shows up as a diff because the left side has a symbol and the right side has a constant.
+  In this case you need to figure out the virtual address of the instruction and block the relocation in config.yml.
+
 
 ### Assembly patterns
 

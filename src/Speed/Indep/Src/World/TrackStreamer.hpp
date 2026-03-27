@@ -237,6 +237,7 @@ class TrackStreamer {
     short GetPredictedZone(StreamingPositionEntry *position_entry);
 
     void ClearStreamingPositions();
+<<<<<<< HEAD
 
     void RemoveCurrentStreamingSections();
 
@@ -250,6 +251,10 @@ class TrackStreamer {
 
     bool HandleMemoryAllocation();
 
+=======
+    void BlockUntilLoadingComplete();
+    void MakeSpaceInPool(int size, bool force);
+>>>>>>> clanker2
     void *AllocateUserMemory(int size, const char *debug_name, int offset);
 
     void FreeUserMemory(void *mem);
@@ -312,6 +317,10 @@ class TrackStreamer {
 
     void DisableZoneSwitching() {
         ZoneSwitchingDisabled = true;
+    }
+
+    void EnableZoneSwitching() {
+        ZoneSwitchingDisabled = false;
     }
 
     int IsSectionVisible(int section_number) {

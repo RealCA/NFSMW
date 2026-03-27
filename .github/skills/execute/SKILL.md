@@ -18,9 +18,15 @@ its own `verify` gate before you treat it as ready to hand off, commit, or move 
 
 This workflow combines several smaller workflows:
 
+<<<<<<< HEAD
 1. **Scaffold** missing classes or headers when the TU depends on types that do not yet exist (see `.github/skills/scaffold/SKILL.md`).
 2. **Implement** each missing or nonmatching function one at a time (see `.github/skills/implement/SKILL.md`).
 3. **Refine** stubborn 80–99% functions after the obvious implementation has already been tried (see `.github/skills/refiner/SKILL.md`).
+=======
+1. **reverse-engineer** — Update Ghidra with accurate data types for the class
+2. **scaffolder** — Create header/source if the class is not yet in the project
+3. **implementer** — Match each function one at a time until the TU is complete.
+>>>>>>> clanker2
 
 Work through the TU **sequentially** and keep one coherent state in the source tree.
 

@@ -184,6 +184,20 @@ class VisibleSectionManager {
     bTList<UnallocatedVisibleSectionUserInfo> UnallocatedUserInfoList; // offset 0x6424, size 0x8
     VisibleSectionBitTable *VisibleBitTables;                          // offset 0x642C, size 0x4
     unsigned int EnabledGroups[256];                                   // offset 0x6430, size 0x40
+<<<<<<< HEAD
+=======
+
+  public:
+    void ActivateOverlay(const char *overlay_name);
+    void UnactivateOverlay();
+    void UnallocateUserInfo(int section_number);
+    DrivableScenerySection *FindDrivableSection(const bVector2 *point);
+    DrivableScenerySection *FindDrivableSection(int section_number /* r4 */);
+
+    VisibleSectionUserInfo *GetUserInfo(int section_number) {
+        return this->UserInfoTable[section_number];
+    }
+>>>>>>> clanker2
 };
 
 extern VisibleSectionManager TheVisibleSectionManager; // size: 0x6830

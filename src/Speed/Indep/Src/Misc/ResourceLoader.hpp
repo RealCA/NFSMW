@@ -71,12 +71,17 @@ class ResourceFile : public bTNode<ResourceFile> {
         return pFirstChunk;
     }
 
+<<<<<<< HEAD
     // static void *operator new(unsigned int size) {}
 
     // static void operator delete(void *ptr) {}
 
     void AssignMemory(void *mem, int allocation_params, const char *debug_name) {
         pFirstChunk = reinterpret_cast<bChunk *>(mem);
+=======
+    void AssignMemory(void *mem, int allocation_params, const char *debug_name) {
+        pFirstChunk = static_cast< bChunk * >(mem);
+>>>>>>> clanker2
         SetAllocationParams(allocation_params, debug_name);
     }
 
