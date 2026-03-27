@@ -3,7 +3,7 @@
 #include "Speed/Indep/Libs/Support/Utility/UMath.h"
 #include "Speed/Indep/Libs/Support/Utility/UStandard.h"
 #include "Speed/Indep/Src/Camera/CameraAI.hpp"
-#include "Speed/Indep/Src/Ecstasy/eModel.hpp"
+#include "Speed/Indep/Src/Ecstasy/Ecstasy.hpp"
 #include "Speed/Indep/Src/Interfaces/SimModels/IModel.h"
 #include "Speed/Indep/Src/Interfaces/SimModels/IPlaceableScenery.h"
 #include "Speed/Indep/Src/Interfaces/SimModels/ISceneryModel.h"
@@ -11,6 +11,7 @@
 #include "Speed/Indep/Src/Interfaces/Simables/ICause.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IExplosion.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IRigidBody.h"
+#include "Speed/Indep/Src/Interfaces/Simables/ISimpleBody.h"
 #include "Speed/Indep/Src/Main/AttribSupport.h"
 #include "Speed/Indep/Src/Physics/Behaviors/SimpleRigidBody.h"
 #include "Speed/Indep/Src/Physics/Behaviors/RigidBody.h"
@@ -56,6 +57,28 @@ Attrib::StringKey Smackable::TUBE;
 Attrib::StringKey Smackable::CONE;
 Attrib::StringKey Smackable::SPHERE;
 static float Smackable_ManagementRate = 0.125f;
+
+IDisposable::~IDisposable() {}
+
+Attrib::Key Attrib::Gen::smackable::ClassKey() {
+    return 0xce70d7db;
+}
+
+HINTERFACE ISimpleBody::_IHandle() {
+    return (HINTERFACE)_IHandle;
+}
+
+HINTERFACE IPlaceableScenery::_IHandle() {
+    return (HINTERFACE)_IHandle;
+}
+
+IPlaceableScenery::~IPlaceableScenery() {}
+
+HINTERFACE EventSequencer::IContext::_IHandle() {
+    return (HINTERFACE)_IHandle;
+}
+
+EventSequencer::IContext::~IContext() {}
 
 static float GetDropTimer(const Attrib::Gen::smackable &attributes) {
     float result;
@@ -243,6 +266,26 @@ Smackable::~Smackable() {
 bool Smackable::SetDynamicData(const EventSequencer::System *system, EventDynamicData *data) {
     data->fPosition = mLastCollisionPosition;
     return true;
+}
+
+template void UTL::Vector<ISimpleBody *, 16>::push_back(ISimpleBody *const &);
+template BehaviorSpecsPtr<Attrib::Gen::rigidbodyspecs>::~BehaviorSpecsPtr();
+
+UCrc32 RenderConn::Pkt_Smackable_Open::ConnectionClass() {
+    return UCrc32(0x804c146e);
+}
+
+unsigned int RenderConn::Pkt_Smackable_Open::Size() {
+    return sizeof(*this);
+}
+
+unsigned int RenderConn::Pkt_Smackable_Open::Type() {
+    return SType();
+}
+
+unsigned int RenderConn::Pkt_Smackable_Open::SType() {
+    static UCrc32 hash = "Pkt_Smackable_Open";
+    return hash.GetValue();
 }
 
 bool Smackable::OnExplosion(const UMath::Vector3 &normal, const UMath::Vector3 &position,
@@ -992,7 +1035,8 @@ PlaceableScenery *PlaceableScenery::Construct(const char *name, unsigned int att
     }
     const CollisionGeometry::Bounds *bounds = collection->GetRoot();
     if (bounds != nullptr) {
-        eModel model(render_name.GetValue());
+        eModel model;
+        model.Init(render_name.GetValue());
         if (model.GetSolid() == nullptr) {
             bHash32 fallback(0xc7395a8);
             render_name = fallback;

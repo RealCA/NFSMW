@@ -1,3 +1,4 @@
+#define ZPHYSICS_OUTLINE_IENTITY_HANDLE
 #include "Speed/Indep/Src/Physics/PhysicsObject.h"
 
 #include "Speed/Indep/Src/Interfaces/SimEntities/IEntity.h"
@@ -10,6 +11,33 @@
 #include "Speed/Indep/Src/World/WorldConn.h"
 
 #include <algorithm>
+
+HINTERFACE Sim::IEntity::_IHandle() {
+    return (HINTERFACE)_IHandle;
+}
+
+HINTERFACE IBody::_IHandle() {
+    return (HINTERFACE)_IHandle;
+}
+
+IBody::~IBody() {}
+
+UCrc32 WorldConn::Pkt_Body_Open::ConnectionClass() {
+    return UCrc32(0x998c21c0);
+}
+
+unsigned int WorldConn::Pkt_Body_Open::Size() {
+    return sizeof(*this);
+}
+
+unsigned int WorldConn::Pkt_Body_Open::Type() {
+    return SType();
+}
+
+unsigned int WorldConn::Pkt_Body_Open::SType() {
+    static UCrc32 hash = "Pkt_Body_Open";
+    return hash.GetValue();
+}
 
 void PhysicsObject::Behaviors::Add(Behavior *beh) {
     int pri = beh->GetPriority();
@@ -53,12 +81,13 @@ PhysicsObject::PhysicsObject(const Attrib::Instance &attribs, SimableType objTyp
 
 PhysicsObject::PhysicsObject(const char *attributeClass, const char *attribName, SimableType objType,
                              HSIMABLE owner, WUID wuid)
-    : Sim::Object(3) //
+    : Sim::Object(13) //
     , ISimable(this) //
     , IBody(this) //
     , IAttachable(this) //
-    , mAttributes(Attrib::FindCollection(stringhash32(attributeClass), stringhash32(attribName)), 0,
-                  nullptr) //
+    , mAttributes(Attrib::FindCollectionWithDefault(Attrib::StringToKey(attributeClass),
+                                                    Attrib::StringToKey(attribName)),
+                  0, nullptr) //
 {
     mWPos = new WWorldPos(0.025f);
     mObjType = objType;
@@ -358,8 +387,7 @@ Behavior *PhysicsObject::LoadBehavior(const UCrc32 &mechanic, const UCrc32 &beha
     }
 
     unsigned int key = mechanic.GetValue();
-    BehaviorParams bp(params, this, mechanic, behavior);
-    beh = BuildElement(behavior, bp);
+    beh = BuildElement(behavior, BehaviorParams(params, this, mechanic, behavior));
     if (beh != nullptr) {
         mMechanics[key] = beh;
         mBehaviors.Add(beh);
@@ -377,8 +405,11 @@ bool PhysicsObject::Attach(UTL::COM::IUnknown *object) {
     if (UTL::COM::ComparePtr(mEntity, object)) {
         return false;
     }
-    Sim::IEntity *ientity = nullptr;
-    if (object->QueryInterface(&ientity)) {
+    Sim::IEntity *ientity = reinterpret_cast<Sim::IEntity *>(
+        (*reinterpret_cast<UTL::COM::Object **>(object))->_mInterfaces.Find((HINTERFACE)Sim::IEntity::_IHandle)
+    );
+    bool hasIEntity = ientity != nullptr;
+    if (hasIEntity) {
         if (mEntity != nullptr) {
             Detach(mEntity);
             mEntity = nullptr;
@@ -454,3 +485,9 @@ void PhysicsObject::Behaviors::Reset() {
         (*iter)->Reset();
     }
 }
+
+template void UTL::Vector<Sim::IEntity *, 16>::reserve(UTL::Vector<Sim::IEntity *, 16>::size_type);
+template void UTL::Vector<IPlayer *, 16>::reserve(UTL::Vector<IPlayer *, 16>::size_type);
+template void UTL::Vector<IModel *, 16>::push_back(IModel *const &);
+template void UTL::Vector<IRigidBody *, 16>::push_back(IRigidBody *const &);
+template const Attrib::RefSpec &Attrib::Attribute::Get<Attrib::RefSpec>(unsigned int) const;

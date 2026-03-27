@@ -10,6 +10,7 @@
 #include "Speed/Indep/Src/Generated/Messages/MJumpCut.h"
 #include "Speed/Indep/Src/Interfaces/ITaskable.h"
 #include "Speed/Indep/Src/Interfaces/SimActivities/INIS.h"
+#include "Speed/Indep/Src/Interfaces/SimActivities/ITrafficCenter.h"
 #include "Speed/Indep/Src/Interfaces/SimEntities/IPlayer.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IAI.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IAudible.h"
@@ -20,8 +21,10 @@
 #include "Speed/Indep/Src/Interfaces/Simables/IEngine.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IExplosion.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IINput.h"
+#include "Speed/Indep/Src/Interfaces/Simables/IRecordablePlayer.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IRenderable.h"
 #include "Speed/Indep/Src/Interfaces/Simables/IRigidBody.h"
+#include "Speed/Indep/Src/Interfaces/Simables/ISpikeable.h"
 #include "Speed/Indep/Src/Interfaces/Simables/ISuspension.h"
 #include "Speed/Indep/Src/Interfaces/Simables/ITransmission.h"
 #include "Speed/Indep/Src/Misc/Config.h"
@@ -40,6 +43,10 @@
 #include "Speed/Indep/Src/World/WWorldPos.h"
 #include "Speed/Indep/bWare/Inc/Strings.hpp"
 
+HINTERFACE IRaceEngine::_IHandle() {
+    return (HINTERFACE)_IHandle;
+}
+
 class OnlineRacer;
 
 class IOnlinePlayer : public UTL::COM::IUnknown {
@@ -52,7 +59,9 @@ class IOnlinePlayer : public UTL::COM::IUnknown {
     virtual void SendSetVehicleOnGround();
 };
 
-class CarPartDatabase { public: CarType GetCarType(unsigned int hash); };
+struct CarPartDatabase {
+    CarType GetCarType(unsigned int hash);
+};
 extern CarPartDatabase CarPartDB;
 bool CarInfo_IsSkinned(CarType type);
 unsigned int CarInfo_GetResourceCost(CarType type, bool is_player, bool split_screen);
@@ -431,8 +440,11 @@ void PVehicle::DoStaging(float dT) {
     if (!mPerfectLaunch.IsSet()) {
         mPerfectLaunch.Amount = 0.0f;
         if (mEngine != nullptr) {
-            IRaceEngine *raceEngine;
-            if (mEngine->QueryInterface(&raceEngine)) {
+            IRaceEngine *raceEngine = reinterpret_cast<IRaceEngine *>(
+                (*reinterpret_cast<UTL::COM::Object **>(mEngine))->_mInterfaces.Find((HINTERFACE)IRaceEngine::_IHandle)
+            );
+            bool hasRaceEngine = raceEngine != nullptr;
+            if (hasRaceEngine) {
                 float range = 0.0f;
                 float peak_rpm = raceEngine->GetPerfectLaunchRange(range);
                 if (range > 0.0f && peak_rpm > 0.0f) {
@@ -874,40 +886,40 @@ PVehicle::PVehicle(DriverClass dc, const Attrib::Gen::pvehicle &attribs, const U
     , IExplodeable(this) //
     , IAttributeable() //
     , mAttributes(attribs) //
+    , mCustomization(nullptr) //
+    , mInput(nullptr) //
+    , mCollisionBody(nullptr) //
+    , mSuspension(nullptr) //
+    , mEngine(nullptr) //
+    , mDamage(nullptr) //
+    , mTranny(nullptr) //
+    , mAI(nullptr) //
+    , mArticulation(nullptr) //
+    , mRenderable(nullptr) //
+    , mAudible(nullptr) //
+    , mSequencer(nullptr) //
+    , mTaskFX(nullptr) //
     , mClass() //
+    , mSpeed(0.0f) //
+    , mAbsSpeed(0.0f) //
+    , mSpeedometer(0.0f) //
+    , mTimeInAir(0.0f) //
+    , mSlipAngle(0.0f) //
+    , mWheelsOnGround(0) //
+    , mLocalVel(UMath::Vector3::kZero) //
+    , mDriverClass(dc) //
+    , mDriverStyle(STYLE_RACING) //
+    , mGlareState(0) //
+    , mStartingNOS(0.0f) //
+    , mBrakeTime(0.0f) //
+    , mForceStop(0) //
+    , mPhysicsMode(PHYSICS_MODE_SIMULATED) //
+    , mAnimating(false) //
+    , mStaging(false) //
     , mPerfectLaunch() //
     , mBehaviorOverrides() //
     , mResources() //
 {
-    mCustomization = nullptr;
-    mInput = nullptr;
-    mCollisionBody = nullptr;
-    mSuspension = nullptr;
-    mEngine = nullptr;
-    mDamage = nullptr;
-    mTranny = nullptr;
-    mAI = nullptr;
-    mArticulation = nullptr;
-    mRenderable = nullptr;
-    mAudible = nullptr;
-    mSequencer = nullptr;
-    mTaskFX = nullptr;
-    mSpeed = 0.0f;
-    mAbsSpeed = 0.0f;
-    mSpeedometer = 0.0f;
-    mTimeInAir = 0.0f;
-    mSlipAngle = 0.0f;
-    mWheelsOnGround = 0;
-    mLocalVel = UMath::Vector3::kZero;
-    mStartingNOS = 0.0f;
-    mDriverClass = dc;
-    mDriverStyle = STYLE_RACING;
-    mGlareState = 0;
-    mBrakeTime = 0.0f;
-    mForceStop = 0;
-    mPhysicsMode = PHYSICS_MODE_SIMULATED;
-    mAnimating = false;
-    mStaging = false;
     mBounds = bounds;
     mOnScreenTime = 0.0f;
     mOverrideDirty = false;
@@ -920,9 +932,7 @@ PVehicle::PVehicle(DriverClass dc, const Attrib::Gen::pvehicle &attribs, const U
     mPerformanceValid = false;
     mCacheName = cache_name;
     if (performance != nullptr) {
-        mPerformance.TopSpeed = performance->TopSpeed;
-        mPerformance.Acceleration = performance->Acceleration;
-        mPerformance.Handling = performance->Handling;
+        mPerformance = *performance;
         mPerformanceValid = true;
     }
     mInstances.AddTail(this);
@@ -932,24 +942,20 @@ PVehicle::PVehicle(DriverClass dc, const Attrib::Gen::pvehicle &attribs, const U
         memcpy(pFVar, customization, 0x198);
         mCustomization = pFVar;
     }
-    UCrc32 classKey(mAttributes.CLASS());
-    mClass = classKey;
+    mClass = mAttributes.CLASS();
     IVehicle::AddToList(VEHICLE_ALL);
     UpdateListing();
-    float rate;
     switch (mDriverClass) {
     case DRIVER_HUMAN:
-        rate = 0.0f;
+        mTaskFX = AddTask("FX", 0.0f, 0.0f, Sim::TASK_FRAME_FIXED);
         break;
     case DRIVER_TRAFFIC:
-        rate = 0.05f;
+        mTaskFX = AddTask("FX", 0.05f, 0.0f, Sim::TASK_FRAME_FIXED);
         break;
     default:
-        rate = 0.02f;
+        mTaskFX = AddTask("FX", 0.02f, 0.0f, Sim::TASK_FRAME_FIXED);
         break;
     }
-    UCrc32 fxName("FX");
-    mTaskFX = AddTask(fxName, rate, 0.0f, Sim::TASK_FRAME_FIXED);
     Debugable::MakeDebugable(DBG_PHYSICS_RACERS);
     Reset();
     if (mDamage != nullptr) {
@@ -990,13 +996,15 @@ PVehicle::~PVehicle() {
 }
 
 UCrc32 PVehicle::LookupBehaviorSignature(const Attrib::StringKey &mechanic) const {
-    if (mechanic == BEHAVIOR_MECHANIC_AUDIO && !IsSoundEnabled) {
-        return UCrc32::kNull;
+    if (mechanic == BEHAVIOR_MECHANIC_AUDIO) {
+        if (!IsSoundEnabled) {
+            return UCrc32::kNull;
+        }
     }
-    UTL::Std::map<UCrc32, UCrc32, _type_ID_PVehicleChangeReq>::const_iterator it =
+    UTL::Std::map<UCrc32, UCrc32, _type_ID_PVehicleChangeReq>::const_iterator iter =
         mBehaviorOverrides.find(UCrc32(mechanic));
-    if (it != mBehaviorOverrides.end()) {
-        return (*it).second;
+    if (iter != mBehaviorOverrides.end()) {
+        return (*iter).second;
     }
     if (mAnimating) {
         if (mClass != VehicleClass::CHOPPER) {
@@ -1031,21 +1039,23 @@ UCrc32 PVehicle::LookupBehaviorSignature(const Attrib::StringKey &mechanic) cons
         return UCrc32("EngineDragster");
     }
     if (mechanic == BEHAVIOR_MECHANIC_SUSPENSION && mClass == VehicleClass::CAR) {
-        int dc = static_cast<int>(mDriverClass);
-        if (dc >= 3 && (dc < 5 || dc == 6)) {
-            return UCrc32("SuspensionSimple");
+        if (mDriverClass >= DRIVER_RACER) {
+            if (mDriverClass <= DRIVER_NONE || mDriverClass == DRIVER_REMOTE) {
+                return UCrc32("SuspensionSimple");
+            }
         }
     }
     if (mechanic == BEHAVIOR_MECHANIC_AI) {
         AIBehaviors *ab = ai_behaviors;
         UCrc32 sig = ab->signature;
-        while (sig != UCrc32::kNull) {
-            if (mDriverClass == ab->dclass &&
-                (mClass == ab->vclass || ab->vclass == UCrc32::kNull)) {
-                return ab->signature;
+        while (ab->signature != UCrc32::kNull) {
+            if (mDriverClass == ab->dclass) {
+                if (mClass == ab->vclass || ab->vclass == UCrc32::kNull) {
+                    sig = ab->signature;
+                    break;
+                }
             }
             ab++;
-            sig = ab->signature;
         }
         return sig;
     }
@@ -1055,12 +1065,14 @@ UCrc32 PVehicle::LookupBehaviorSignature(const Attrib::StringKey &mechanic) cons
             return UCrc32("EffectsPlayer");
         }
     }
+    Attrib::Instance instance(nullptr, 0, nullptr);
     Attrib::StringKey behaviourKey;
-    const void *data = mAttributes.GetAttributePointer(mechanic.GetHash32(), 0);
-    if (data != nullptr) {
-        return UCrc32(static_cast<const char *>(data));
+    Attrib::Attribute atr = mAttributes.Get(mechanic.GetHash32());
+    if (atr.Get(0, behaviourKey)) {
+    } else {
+        return UCrc32::kNull;
     }
-    return UCrc32::kNull;
+    return UCrc32(behaviourKey);
 }
 
 void PVehicle::LoadBehaviors(const UMath::Vector3 &initialPos, const UMath::Matrix4 &initMat) {
@@ -1228,17 +1240,16 @@ bool PVehicle::SetVehicleOnGround(const UMath::Vector3 &resetPos, const UMath::V
 
 ISimable *PVehicle::Construct(Sim::Param params) {
     const VehicleParams vp = params.Fetch< VehicleParams >(UCrc32(0xa6b47fac));
-    Attrib::Gen::pvehicle attributes(
-        Attrib::FindCollection(Attrib::Gen::pvehicle::ClassKey(), vp.carType), 0, nullptr);
+    Attrib::Gen::pvehicle attributes(vp.carType, 0, nullptr);
     if (!attributes.IsValid()) {
         return nullptr;
     }
+    const char *vehicle_name;
     const FECustomizationRecord *customizations = vp.customization;
     if (customizations == nullptr) {
-        const char *vehicle_name = attributes.DefaultPresetRide();
+        vehicle_name = attributes.DefaultPresetRide();
         if (vehicle_name != nullptr) {
-            unsigned int hash = bStringHashUpper(vehicle_name);
-            PresetCar *preset = FindFEPresetCar(hash);
+            PresetCar *preset = FindFEPresetCar(bStringHashUpper(vehicle_name));
             if (preset != nullptr) {
                 static FECustomizationRecord temp_record;
                 temp_record.Default();
@@ -1253,8 +1264,8 @@ ISimable *PVehicle::Construct(Sim::Param params) {
     if (!customizations->WriteRecordIntoPhysics(attributes)) {
         return nullptr;
     }
-    const Physics::Info::Performance *performance = vp.matched;
-    if (performance != nullptr && !Physics::Upgrades::MatchPerformance(attributes, *performance)) {
+    if (vp.matched != nullptr
+        && !Physics::Upgrades::MatchPerformance(attributes, *vp.matched)) {
         return nullptr;
     }
     if ((vp.Flags & 4) != 0) {
@@ -1262,13 +1273,12 @@ ISimable *PVehicle::Construct(Sim::Param params) {
         Physics::Upgrades::RemovePart(attributes, Physics::Upgrades::PUT_NOS);
     }
     if (GetMikeMannBuild() != 0) {
-        int maxLevel = Physics::Upgrades::GetMaxLevel(attributes, Physics::Upgrades::PUT_NOS);
-        Physics::Upgrades::SetLevel(attributes, Physics::Upgrades::PUT_NOS, maxLevel);
+        int new_nos = Physics::Upgrades::GetMaxLevel(attributes, Physics::Upgrades::PUT_NOS);
+        Physics::Upgrades::SetLevel(attributes, Physics::Upgrades::PUT_NOS, new_nos);
     }
     if ((vp.Flags & 0x10) != 0) {
         if (Physics::Upgrades::GetLevel(attributes, Physics::Upgrades::PUT_NOS) == 0) {
-            int maxLevel = Physics::Upgrades::GetMaxLevel(attributes, Physics::Upgrades::PUT_NOS);
-            if (maxLevel > 0) {
+            if (Physics::Upgrades::GetMaxLevel(attributes, Physics::Upgrades::PUT_NOS) > 0) {
                 Physics::Upgrades::SetLevel(attributes, Physics::Upgrades::PUT_NOS, 1);
             }
         }
@@ -1278,54 +1288,55 @@ ISimable *PVehicle::Construct(Sim::Param params) {
     if (geoms == nullptr) {
         return nullptr;
     }
-    const CollisionGeometry::Bounds *bounds = geoms->GetRoot();
-    if (bounds == nullptr) {
+    if (geoms->GetRoot() == nullptr) {
         return nullptr;
     }
     bool spooling_resources = (vp.Flags & 1) != 0;
-    Resource resource(attributes, spooling_resources, vp.carClass == DRIVER_HUMAN);
+    bool is_player = vp.carClass == DRIVER_HUMAN;
+    Resource resource(attributes, spooling_resources, is_player);
     if (!resource.IsValid()) {
         return nullptr;
     }
     UTL::Std::list< Resource, _type_list > resources;
     resources.push_back(resource);
-    Attrib::RefSpec trailer_ref;
-    const Attrib::RefSpec *src = reinterpret_cast<const Attrib::RefSpec *>(
-        attributes.GetAttributePointer(0x9a5537fe, 0));
-    if (src != nullptr) {
-        trailer_ref = *src;
-    }
+    Attrib::RefSpec trailer_ref = attributes.Trailer();
+    Physics::Info::Performance perf;
     if (trailer_ref.GetCollectionKey() != 0) {
-        Attrib::Gen::pvehicle trailerAttribs(trailer_ref.GetCollectionKey(), 0, nullptr);
-        Resource trailerResource(trailerAttribs, spooling_resources, false);
-        resources.push_back(trailerResource);
+        Attrib::Gen::pvehicle trailerAttribs(trailer_ref, 0, nullptr);
+        resources.push_back(Resource(trailerAttribs, spooling_resources, false));
     }
     if (!MakeRoom(vp.VehicleCache, resources)) {
         return nullptr;
     }
-    Physics::Info::Performance perf;
-    if (performance == nullptr && (vp.Flags & 8) != 0) {
+    resources.clear();
+    perf.Default();
+    const Physics::Info::Performance *performance = nullptr;
+    if (vp.matched != nullptr) {
+        performance = vp.matched;
+    } else if ((vp.Flags & 8) != 0) {
         if (Physics::Info::ComputePerformance(attributes, perf)) {
             performance = &perf;
         }
     }
-    if (!CanSpawnRigidBody(vp.initialPos, true)) {
-        return nullptr;
+    if (CanSpawnRigidBody(vp.initialPos, true)) {
+        const char *cache_name;
+        PVehicle *vehicle;
+        if (vp.VehicleCache != nullptr) {
+            cache_name = vp.VehicleCache->GetCacheName();
+        } else {
+            cache_name = nullptr;
+        }
+        vehicle = new PVehicle(vp.carClass, attributes, vp.initialVec, vp.initialPos,
+                               geoms->GetRoot(),
+                               customizations, resource, performance, cache_name);
+        if ((vp.Flags & 2) != 0) {
+            vehicle->SetVehicleOnGround(vp.initialPos, vp.initialVec);
+        }
+        if (vehicle != nullptr) {
+            return static_cast<ISimable *>(vehicle);
+        }
     }
-    const char *cache_name = nullptr;
-    if (vp.VehicleCache != nullptr) {
-        cache_name = vp.VehicleCache->GetCacheName();
-    }
-    PVehicle *pv = new PVehicle(vp.carClass, attributes, vp.initialVec, vp.initialPos, bounds,
-                                customizations, resource, performance, cache_name);
-    if ((vp.Flags & 2) != 0) {
-        pv->SetVehicleOnGround(vp.initialPos, vp.initialVec);
-    }
-    ISimable *result = nullptr;
-    if (pv != nullptr) {
-        result = static_cast<ISimable *>(pv);
-    }
-    return result;
+    return nullptr;
 }
 
 bool PVehicle::MakeRoom(IVehicleCache *whosasking, const UTL::Std::list<Resource, _type_list> &resources) {
@@ -1539,3 +1550,11 @@ bool PVehicle::MakeRoom(IVehicleCache *whosasking, const UTL::Std::list<Resource
 
     return true;
 }
+
+template void UTL::Vector<ICollisionBody *, 16>::push_back(ICollisionBody *const &);
+template void UTL::Vector<IInputPlayer *, 16>::push_back(IInputPlayer *const &);
+template void UTL::Vector<IRecordablePlayer *, 16>::push_back(IRecordablePlayer *const &);
+template void UTL::Vector<ISpikeable *, 16>::push_back(ISpikeable *const &);
+template UTL::Collections::Listable<ITrafficCenter, 8>::List::~List();
+template UTL::Collections::Listable<ISpikeable, 10>::List::~List();
+template Behavior *UTL::COM::Factory<const BehaviorParams &, Behavior, UCrc32>::CreateInstance(UCrc32, const BehaviorParams &);

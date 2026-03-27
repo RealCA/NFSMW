@@ -489,6 +489,10 @@ class cFrontendDatabase {
         return &CurrentUserProfiles[0]->GetOptions()->ThePlayerSettings[player];
     }
 
+    GameplaySettings *GetGameplaySettings() {
+        return &CurrentUserProfiles[0]->GetOptions()->TheGameplaySettings;
+    }
+
     FEPlayerCarDB *GetPlayerCarStable(int player) {
         if (static_cast<unsigned int>(player) <= 1)
             return &CurrentUserProfiles[player]->PlayersCarStable;

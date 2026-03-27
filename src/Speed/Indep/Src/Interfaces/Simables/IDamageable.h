@@ -17,7 +17,7 @@ class IDamageable : public UTL::COM::IUnknown {
 
     IDamageable(UTL::COM::Object *owner) : UTL::COM::IUnknown(owner, _IHandle()) {}
 
-    virtual ~IDamageable() {}
+    virtual ~IDamageable();
 
     virtual void SetInShock(float scale) = 0;
     virtual void SetShockForce(float f) = 0;
@@ -37,7 +37,7 @@ class IDamageableVehicle : public UTL::COM::IUnknown {
 
     IDamageableVehicle(UTL::COM::Object *owner) : UTL::COM::IUnknown(owner, _IHandle()) {}
 
-    virtual ~IDamageableVehicle() {}
+    virtual ~IDamageableVehicle();
 
     virtual bool IsLightDamaged(VehicleFX::ID idx) const = 0;
     virtual void DamageLight(VehicleFX::ID idx, bool b) = 0;

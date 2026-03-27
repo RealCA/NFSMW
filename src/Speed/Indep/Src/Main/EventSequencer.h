@@ -36,13 +36,11 @@ class System;
 
 class IContext : public UTL::COM::IUnknown {
   public:
-    static HINTERFACE _IHandle() {
-        return (HINTERFACE)_IHandle;
-    }
+    static HINTERFACE _IHandle();
 
-    IContext(UTL::COM::Object *owner) : UTL::COM::IUnknown(owner, _IHandle()) {}
+    IContext(UTL::COM::Object *owner) : UTL::COM::IUnknown(owner, (HINTERFACE)_IHandle) {}
 
-    virtual ~IContext() {}
+    virtual ~IContext();
 
     virtual bool SetDynamicData(const System *system, EventDynamicData *data);
 };
